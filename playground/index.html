@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AIRequestGuard Playground</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: monospace; padding: 24px; background: #0d1117; color: #c9d1d9; }
+      h1 { color: #58a6ff; margin-bottom: 8px; }
+      .subtitle { color: #8b949e; margin-bottom: 20px; font-size: 13px; }
+      .section { margin-bottom: 20px; }
+      .section-title { color: #f0883e; font-size: 12px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+      .btn-group { display: flex; flex-wrap: wrap; gap: 6px; }
+      button {
+        padding: 7px 14px; background: #21262d; color: #c9d1d9;
+        border: 1px solid #30363d; border-radius: 6px; cursor: pointer; font-size: 12px; font-family: monospace;
+      }
+      button:hover { background: #30363d; border-color: #58a6ff; color: #58a6ff; }
+      #output {
+        background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+        padding: 16px; margin-top: 20px; white-space: pre; min-height: 220px;
+        font-size: 13px; line-height: 1.6; overflow: auto;
+      }
+      .hint { color: #8b949e; margin-top: 12px; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>AIRequestGuard Playground</h1>
+    <p class="subtitle">打开 DevTools Console 查看完整警告信息</p>
+
+    <div class="section">
+      <div class="section-title">基础能力</div>
+      <div class="btn-group">
+        <button id="btn-real">real 模式</button>
+        <button id="btn-mock-static">mock 静态数据</button>
+        <button id="btn-mock-fn">mock 工厂函数</button>
+        <button id="btn-no-adapter">无 adapter 透传</button>
+        <button id="btn-no-mockdata">mock 无数据警告</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Schema 校验</div>
+      <div class="btn-group">
+        <button id="btn-schema-ok">schema 完全匹配</button>
+        <button id="btn-schema-missing">缺失字段警告</button>
+        <button id="btn-schema-type">类型不匹配警告</button>
+        <button id="btn-schema-extra">多余字段（不警告）</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">真实请求拦截</div>
+      <div class="btn-group">
+        <button id="btn-fetch-user">GET /api/user/detail</button>
+        <button id="btn-fetch-order">GET /api/order/list</button>
+      </div>
+      <p class="hint" style="margin-top:6px">fetch 拦截器自动采集 raw 数据 → 刷新项目根目录的 ai-request-guard-report.html 查看报告</p>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Adapter 能力</div>
+      <div class="btn-group">
+        <button id="btn-nested">嵌套结构处理</button>
+        <button id="btn-array">数组转换</button>
+        <button id="btn-default">默认值补齐</button>
+        <button id="btn-typecast">类型转换</button>
+      </div>
+    </div>
+
+    <div id="output">点击上方按钮查看结果...</div>
+    <p class="hint">⚠ 警告信息请在 DevTools Console 中查看</p>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

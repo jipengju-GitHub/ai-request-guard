@@ -1,0 +1,14 @@
+node_modules/
+*.local
+.claude/
+
+# built output
+dist/
+packages/*/dist/
+playground/dist/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# generated type roots at package root level (not src/*.d.ts)
+*.d.ts
+!packages/*/src/**/*.d.ts

@@ -1,0 +1,67 @@
+{
+  "name": "@ai-request-guard/webpack-plugin",
+  "version": "0.1.0",
+  "description": "Webpack plugin for AIRequestGuard — real-request interception and schema diff HTML report (Vue CLI 4 / webpack 4+)",
+  "keywords": [
+    "webpack-plugin",
+    "vue-cli",
+    "ai-request-guard",
+    "anti-corruption-layer",
+    "schema-diff",
+    "fetch-interceptor",
+    "typescript"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jipengju-GitHub/ai-request-guard.git",
+    "directory": "packages/webpack-plugin"
+  },
+  "homepage": "https://github.com/jipengju-GitHub/ai-request-guard#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./report-sink": {
+      "import": "./dist/report-sink.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "rollup -c rollup.config.ts --configPlugin typescript",
+    "dev": "rollup -c rollup.config.ts --configPlugin typescript --watch"
+  },
+  "peerDependencies": {
+    "webpack": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "webpack": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@ai-request-guard/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@types/node": "^22.0.0",
+    "@types/webpack": "^5.28.5",
+    "@types/webpack-dev-server": "^4.7.2",
+    "rollup": "^4.24.0",
+    "rollup-plugin-dts": "^6.1.1",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2"
+  }
+}

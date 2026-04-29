@@ -1,0 +1,32 @@
+{
+  "name": "ai-request-guard-root",
+  "private": true,
+  "version": "0.0.0",
+  "pnpm": {
+    "overrides": {
+      "@types/node": "^22.0.0"
+    }
+  },
+  "scripts": {
+    "dev": "pnpm --filter playground dev",
+    "docs:dev": "pnpm --filter docs dev",
+    "docs:build": "pnpm --filter docs build",
+    "docs:preview": "pnpm --filter docs preview",
+    "build": "pnpm --filter @ai-request-guard/core build && pnpm --filter @ai-request-guard/vite-plugin build",
+    "build:all": "pnpm --filter @ai-request-guard/core build && pnpm --filter @ai-request-guard/vite-plugin build && pnpm --filter @ai-request-guard/webpack-plugin build",
+    "lint": "eslint packages --ext .ts,.js",
+    "lint:fix": "eslint packages --ext .ts,.js --fix",
+    "typecheck": "pnpm --filter @ai-request-guard/core typecheck",
+    "core:publish": "pnpm --filter @ai-request-guard/core build && pnpm --filter @ai-request-guard/core publish --no-git-checks",
+    "vite-plugin:publish": "pnpm --filter @ai-request-guard/vite-plugin build && pnpm --filter @ai-request-guard/vite-plugin publish --no-git-checks",
+    "webpack-plugin:publish": "pnpm --filter @ai-request-guard/webpack-plugin build && pnpm --filter @ai-request-guard/webpack-plugin publish --no-git-checks",
+    "publish:all": "pnpm run build:all && pnpm --filter @ai-request-guard/core publish --no-git-checks && pnpm --filter @ai-request-guard/vite-plugin publish --no-git-checks && pnpm --filter @ai-request-guard/webpack-plugin publish --no-git-checks"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.5.0"
+  }
+}
