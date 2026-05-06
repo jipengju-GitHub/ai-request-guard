@@ -21,6 +21,7 @@ const mockApi: Record<string, unknown> = {
 }
 
 export default defineConfig(({ mode }) => ({
+  base: mode === 'production' ? '/ai-request-guard/playground/' : '/',
   server: {
     host: '0.0.0.0',
   },

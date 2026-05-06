@@ -35,8 +35,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build packages
+        run: pnpm --filter @ai-request-guard/core build && pnpm --filter @ai-request-guard/vite-plugin build
+
+      - name: Build playground
+        run: pnpm --filter playground build
+
       - name: Build docs
         run: pnpm docs:build
+
+      - name: Copy playground into docs dist
+        run: cp -r playground/dist docs/.vitepress/dist/playground
 
       - uses: actions/upload-pages-artifact@v3
         with:
