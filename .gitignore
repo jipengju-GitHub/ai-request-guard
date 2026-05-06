@@ -1,4 +1,7 @@
 node_modules/
+
+# 内部设计文档，仅本地保留
+AIRequestGuard SDK 方案设计.md
 *.local
 .claude/
 
