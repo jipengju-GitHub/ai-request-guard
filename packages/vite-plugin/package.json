@@ -16,7 +16,7 @@
     "url": "https://github.com/jipengju-GitHub/ai-request-guard.git",
     "directory": "packages/vite-plugin"
   },
-  "homepage": "https://github.com/jipengju-GitHub/ai-request-guard#readme",
+  "homepage": "https://guard.pennji.cn/api/webpack-plugin.html",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

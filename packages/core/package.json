@@ -19,7 +19,7 @@
     "url": "https://github.com/jipengju-GitHub/ai-request-guard.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/jipengju-GitHub/ai-request-guard#readme",
+  "homepage": "https://guard.pennji.cn/api/core.html",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
