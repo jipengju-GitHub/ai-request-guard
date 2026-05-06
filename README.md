@@ -51,7 +51,7 @@ pnpm build:all    # 构建所有包
 
 ## 文档
 
-详细用法见 [docs/](./docs) 目录，或运行 `pnpm docs:dev` 在本地浏览。
+详细用法见 [AI-Request-Guard/](https://guard.pennji.cn) 目录，或运行 `pnpm docs:dev` 在本地浏览。
 
 ## License
 
