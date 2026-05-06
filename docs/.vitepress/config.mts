@@ -11,9 +11,10 @@ export default defineConfig({
   title: 'AIRequestGuard',
   description: '前端防腐层 SDK — 用 Adapter 模式隔离后端数据结构变化',
   lang: 'zh-CN',
+  head: [['link', { rel: 'icon', href: '/logo.svg', type: 'image/svg+xml' }]],
 
   themeConfig: {
-    logo: '🛡️',
+    logo: '/logo.svg',
 
     nav: [
       { text: '指南', link: '/guide/getting-started' },
