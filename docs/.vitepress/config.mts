@@ -47,7 +47,9 @@ export default defineConfig({
       ],
     },
 
-    socialLinks: [],
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/jipengju-GitHub/ai-request-guard' },
+    ],
 
     footer: {
       message: 'Released under the MIT License.',
