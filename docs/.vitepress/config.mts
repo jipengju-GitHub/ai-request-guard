@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  base: '/ai-request-guard/',
+  base: '/',
   vite: {
     server: {
       host: '0.0.0.0',
@@ -19,7 +19,7 @@ export default defineConfig({
       { text: '指南', link: '/guide/getting-started' },
       { text: 'API 参考', link: '/api/core' },
       { text: '设计理念', link: '/design' },
-      { text: 'Playground', link: '/ai-request-guard/playground/', target: '_blank' },
+      { text: 'Playground', link: '/playground/', target: '_blank' },
     ],
 
     sidebar: {
