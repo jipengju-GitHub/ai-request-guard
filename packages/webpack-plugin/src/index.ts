@@ -262,6 +262,24 @@ export class AIGuardWebpackPlugin {
     })
   }
 
+  /**
+   * 手动将 devServer 中间件注册到 express app 上。
+   * Vue CLI 4 / webpack-dev-server v3 项目请在 `devServer.before` 中调用此方法。
+   *
+   * @example
+   * // vue.config.js
+   * const plugin = new AIGuardWebpackPlugin({ reporting: true })
+   * module.exports = {
+   *   configureWebpack: { plugins: [plugin] },
+   *   devServer: {
+   *     before(app) { plugin.applyMiddlewares(app) }
+   *   }
+   * }
+   */
+  applyMiddlewares(app: any): void {
+    this._applyMiddlewares(app)
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _applyMiddlewares(app: any): void {
     const self = this

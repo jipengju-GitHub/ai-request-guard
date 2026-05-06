@@ -22,21 +22,29 @@ pnpm add -D @ai-request-guard/webpack-plugin
 
 ## 配置插件（vue.config.js）
 
+::: warning Vue CLI 4 / webpack-dev-server v3 注意事项
+Vue CLI 4 中 devServer 实例在 webpack 插件执行**之前**已完成初始化，插件无法自动注入中间件。
+必须将插件实例提取到变量，并在 `devServer.before` 中**手动调用** `plugin.applyMiddlewares(app)`。
+:::
+
 ::: code-group
 
 ```js [JS]
 // vue.config.js
 const { AIGuardWebpackPlugin } = require('@ai-request-guard/webpack-plugin')
 
+// 1. 提取为变量，devServer.before 中需要引用同一个实例
+const aiGuardPlugin = new AIGuardWebpackPlugin({ reporting: true })
+
 module.exports = {
   configureWebpack: {
-    plugins: [
-      new AIGuardWebpackPlugin({
-        reporting: true,                           // 启用上报功能（默认关闭）
-        outFile: 'ai-request-guard-report.html',   // 报告输出路径
-        methods: ['GET'],                           // 拦截的 HTTP 方法
-      }),
-    ],
+    plugins: [aiGuardPlugin],
+  },
+  devServer: {
+    // 2. 手动注册 devServer 端点（Vue CLI 4 必须）
+    before(app) {
+      aiGuardPlugin.applyMiddlewares(app)
+    },
   },
 }
 ```
@@ -46,24 +54,27 @@ module.exports = {
 import { AIGuardWebpackPlugin } from '@ai-request-guard/webpack-plugin'
 import { defineConfig } from '@vue/cli-service'
 
+// 1. 提取为变量，devServer.before 中需要引用同一个实例
+const aiGuardPlugin = new AIGuardWebpackPlugin({ reporting: true })
+
 export default defineConfig({
   configureWebpack: {
-    plugins: [
-      new AIGuardWebpackPlugin({
-        reporting: true,
-        outFile: 'ai-request-guard-report.html',
-        methods: ['GET'],
-      }),
-    ],
+    plugins: [aiGuardPlugin],
+  },
+  devServer: {
+    // 2. 手动注册 devServer 端点（Vue CLI 4 必须）
+    before(app: any) {
+      aiGuardPlugin.applyMiddlewares(app)
+    },
   },
 })
 ```
 
 :::
 
-## 引入浏览器端模块
+## 引入浏览器端模块 <Badge type="danger" text="必须" />
 
-在应用入口文件中引入 `report-sink`，安装 fetch 拦截器和自动上报逻辑：
+在应用入口文件中引入 `report-sink`，安装 fetch 拦截器和自动上报逻辑。**此步骤不可省略**，否则 diff 数据不会上报，报告文件不会生成。
 
 ::: code-group
 
@@ -94,11 +105,15 @@ const { AIGuardWebpackPlugin } = require('@ai-request-guard/webpack-plugin')
 module.exports = {
   configureWebpack: (config) => {
     if (process.env.NODE_ENV === 'development') {
-      const entry = config.entry.app
-      config.entry.app = [
-        '@ai-request-guard/webpack-plugin/report-sink',
-        ...entry,
-      ]
+      // entry key 取决于项目配置：
+      //   未使用 pages 时默认为 'app'
+      //   使用 pages 时 key 与 pages 中定义的名称一致，例如 'index'
+      Object.keys(config.entry).forEach((key) => {
+        config.entry[key] = [
+          '@ai-request-guard/webpack-plugin/report-sink',
+          ...config.entry[key],
+        ]
+      })
     }
     return {
       plugins: [new AIGuardWebpackPlugin({ reporting: true })],
@@ -115,11 +130,15 @@ import { defineConfig } from '@vue/cli-service'
 export default defineConfig({
   configureWebpack: (config) => {
     if (process.env.NODE_ENV === 'development') {
-      const entry = (config as any).entry.app
-      ;(config as any).entry.app = [
-        '@ai-request-guard/webpack-plugin/report-sink',
-        ...entry,
-      ]
+      // entry key 取决于项目配置：
+      //   未使用 pages 时默认为 'app'
+      //   使用 pages 时 key 与 pages 中定义的名称一致，例如 'index'
+      Object.keys((config as any).entry).forEach((key) => {
+        ;(config as any).entry[key] = [
+          '@ai-request-guard/webpack-plugin/report-sink',
+          ...(config as any).entry[key],
+        ]
+      })
     }
     return {
       plugins: [new AIGuardWebpackPlugin({ reporting: true })],
@@ -155,6 +174,19 @@ AIRequestGuard.watch('/api/order/list', 'order-list')
 ## 查看报告
 
 触发请求后，webpack-dev-server 会在项目根目录生成 `ai-request-guard-report.html`，双击用浏览器打开即可。
+
+::: warning 报告未生成？先检查这两步
+上报链路由**两部分**共同组成，缺一不可：
+
+| 步骤 | 作用 | 遗漏后果 |
+|------|------|---------|
+| `new AIGuardWebpackPlugin({ reporting: true })` | 在 devServer 注册接收端点 | 数据无处可达，报告不更新 |
+| 引入 `report-sink`（main.js 或 entry） | 在浏览器端安装 diff 上报逻辑 | diff 数据从未发出，报告永远为空 |
+
+**最常见的漏配**：只加了插件，忘记在入口引入 `report-sink`。
+
+验证方法：访问会触发目标接口的页面，然后**切换到其他标签页**（触发 `visibilitychange`）或关闭页面（触发 `beforeunload`），再检查项目根目录是否有报告文件生成。
+:::
 
 ---
 

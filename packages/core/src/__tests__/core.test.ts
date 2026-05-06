@@ -51,6 +51,56 @@ describe('validateSchema', () => {
     const diff = validateSchema('api', [], { id: 0 })
     expect(diff.missingFields).toEqual([])
   })
+
+  it('嵌套对象 — 递归校验', () => {
+    const data = { data: { current: 1, size: 10, total: 100, records: [] } }
+    const schema = { data: { current: 0, size: 0, total: 0, records: [{ id: '', name: '' }] } }
+    const diff = validateSchema('api', data, schema)
+    expect(diff.missingFields).toEqual([])
+    expect(diff.typeMismatches).toEqual([])
+  })
+
+  it('嵌套对象 — 检测缺失字段', () => {
+    const data = { data: { current: 1, size: 10 } }
+    const schema = { data: { current: 0, size: 0, total: 0 } }
+    const diff = validateSchema('api', data, schema)
+    expect(diff.missingFields).toContain('data.total')
+  })
+
+  it('嵌套数组元素 — 检测缺失字段', () => {
+    const data = { data: { records: [{ id: '1', name: 'test' }] } }
+    const schema = { data: { records: [{ id: '', name: '', dept: '' }] } }
+    const diff = validateSchema('api', data, schema)
+    expect(diff.missingFields).toContain('data.records[].dept')
+  })
+
+  it('嵌套数组元素 — 检测多余字段', () => {
+    const data = { data: { records: [{ id: '1', name: 'test', extra: true }] } }
+    const schema = { data: { records: [{ id: '', name: '' }] } }
+    const diff = validateSchema('api', data, schema)
+    expect(diff.extraFields).toContain('data.records[].extra')
+  })
+
+  it('嵌套类型不匹配', () => {
+    const data = { info: { age: '28' } }
+    const schema = { info: { age: 0 } }
+    const diff = validateSchema('api', data, schema)
+    expect(diff.typeMismatches).toEqual([{ field: 'info.age', expected: 'number', actual: 'string' }])
+  })
+
+  it('data 中嵌套值非对象而 schema 期望对象', () => {
+    const data = { data: 'not-an-object' }
+    const schema = { data: { id: '' } }
+    const diff = validateSchema('api', data, schema)
+    expect(diff.typeMismatches).toEqual([{ field: 'data', expected: 'object', actual: 'string' }])
+  })
+
+  it('data 中值非数组而 schema 期望数组', () => {
+    const data = { items: 'not-array' }
+    const schema = { items: [{ id: '' }] }
+    const diff = validateSchema('api', data, schema)
+    expect(diff.typeMismatches).toEqual([{ field: 'items', expected: 'array', actual: 'string' }])
+  })
 })
 
 // ══════════════════════════════════════════════════════════

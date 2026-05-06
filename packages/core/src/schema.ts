@@ -12,49 +12,84 @@ export interface SchemaDiff {
   typeMismatches: Array<{ field: string; expected: string; actual: string }>
 }
 
-/**
- * 对比 adapter 输出（data）与 schema 定义，返回差异详情。
- *
- * 校验规则：
- * - missingFields：schema 中有但 data 中没有的字段（真正缺失，需关注）
- * - extraFields：data 中有但 schema 未定义的字段（可能是 adapter 多映射，仅供参考）
- * - typeMismatches：字段存在但 typeof 类型不一致（null 值跳过类型检查）
- *
- * @param id     接口唯一 ID，用于报告定位
- * @param data   adapter 转换后的 ViewModel 对象
- * @param schema 期望的 ViewModel 结构（字段名 → 默认值，类型由默认值推断）
- */
-export function validateSchema(id: string, data: unknown, schema: Schema): SchemaDiff {
-  const diff: SchemaDiff = { id, missingFields: [], extraFields: [], typeMismatches: [] }
-
-  if (typeof data !== 'object' || data === null) return diff
-
-  // 分页接口 adapter 常返回 Array（如 res.data.records），取第一个有效元素做校验
-  const target = Array.isArray(data) ? data.find((item) => item !== null && item !== undefined) : data
-  if (target === undefined) return diff
-
-  const dataObj = target as Record<string, unknown>
-  const schemaKeys = Object.keys(schema)
+function compareObject(
+  dataObj: Record<string, unknown>,
+  schemaObj: Record<string, unknown>,
+  diff: SchemaDiff,
+  prefix: string
+): void {
+  const schemaKeys = Object.keys(schemaObj)
   const dataKeys = Object.keys(dataObj)
 
   for (const key of schemaKeys) {
+    const fieldPath = prefix ? `${prefix}.${key}` : key
     if (!(key in dataObj)) {
-      diff.missingFields.push(key)
+      diff.missingFields.push(fieldPath)
     } else {
-      const expectedType = typeof schema[key] // schema的数据类型
-      const actualType = typeof dataObj[key]  // 实际adapterz转换后的数据类型
-      // null 值不做类型断言，避免误报
-      if (expectedType !== actualType && schema[key] !== null && dataObj[key] !== null) {
-        diff.typeMismatches.push({ field: key, expected: expectedType, actual: actualType })
+      const schemaVal = schemaObj[key]
+      const dataVal = dataObj[key]
+
+      if (schemaVal === null || dataVal === null) continue
+
+      if (Array.isArray(schemaVal)) {
+        if (!Array.isArray(dataVal)) {
+          diff.typeMismatches.push({ field: fieldPath, expected: 'array', actual: typeof dataVal })
+        } else {
+          const templateItem = schemaVal[0]
+          if (templateItem !== null && templateItem !== undefined && typeof templateItem === 'object') {
+            const firstData = dataVal.find((item: unknown) => item !== null && item !== undefined)
+            if (firstData && typeof firstData === 'object') {
+              compareObject(
+                firstData as Record<string, unknown>,
+                templateItem as Record<string, unknown>,
+                diff,
+                `${fieldPath}[]`
+              )
+            }
+          }
+        }
+      } else if (typeof schemaVal === 'object') {
+        if (typeof dataVal !== 'object') {
+          diff.typeMismatches.push({ field: fieldPath, expected: 'object', actual: typeof dataVal })
+        } else {
+          compareObject(
+            dataVal as Record<string, unknown>,
+            schemaVal as Record<string, unknown>,
+            diff,
+            fieldPath
+          )
+        }
+      } else {
+        const expectedType = typeof schemaVal
+        const actualType = typeof dataVal
+        if (expectedType !== actualType) {
+          diff.typeMismatches.push({ field: fieldPath, expected: expectedType, actual: actualType })
+        }
       }
     }
   }
 
   for (const key of dataKeys) {
     if (!schemaKeys.includes(key)) {
-      diff.extraFields.push(key)
+      const fieldPath = prefix ? `${prefix}.${key}` : key
+      diff.extraFields.push(fieldPath)
     }
   }
+}
+
+/**
+ * 对比 adapter 输出（data）与 schema 定义，返回差异详情。
+ * 支持嵌套对象和数组结构的递归校验。
+ */
+export function validateSchema(id: string, data: unknown, schema: Schema): SchemaDiff {
+  const diff: SchemaDiff = { id, missingFields: [], extraFields: [], typeMismatches: [] }
+
+  if (typeof data !== 'object' || data === null) return diff
+
+  const target = Array.isArray(data) ? data.find((item) => item !== null && item !== undefined) : data
+  if (target === undefined) return diff
+
+  compareObject(target as Record<string, unknown>, schema, diff, '')
 
   return diff
 }
