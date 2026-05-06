@@ -2,12 +2,15 @@
 
 前端防腐层 SDK。用 Adapter 模式将后端 DTO 与前端 ViewModel 彻底解耦，让接口字段重命名、结构调整不再影响视图代码。
 
+📖 **文档**：[guard.pennji.cn](https://guard.pennji.cn)　　🎮 **Playground**：[guard.pennji.cn/playground](https://guard.pennji.cn/playground/)
+
 ## 包结构
 
 | 包 | 说明 |
 |---|---|
 | [`@ai-request-guard/core`](./packages/core) | 核心运行时：adapter 注册、mock、schema 校验 |
 | [`@ai-request-guard/vite-plugin`](./packages/vite-plugin) | Vite 插件：真实请求拦截 + HTML 差异报告 |
+| [`@ai-request-guard/webpack-plugin`](./packages/webpack-plugin) | Webpack 插件：真实请求拦截 + HTML 差异报告 |
 
 ## 快速上手
 
@@ -44,14 +47,10 @@ console.log(user.userName) // ViewModel 字段，不受后端字段名变化影�
 
 ```bash
 pnpm install
-pnpm dev          # 启动 playground
-pnpm docs:dev     # 启动文档站
+pnpm all:dev      # 同时启动 playground (5173) + 文档站 (5174)
 pnpm build:all    # 构建所有包
+pnpm test         # 运行单元测试
 ```
-
-## 文档
-
-详细用法见 [AI-Request-Guard/](https://guard.pennji.cn) 目录，或运行 `pnpm docs:dev` 在本地浏览。
 
 ## License
 
