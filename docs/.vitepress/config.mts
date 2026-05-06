@@ -1,5 +1,8 @@
 import { defineConfig } from 'vitepress'
 
+const isProd = process.env.NODE_ENV === 'production'
+const playgroundUrl = isProd ? 'https://guard.pennji.cn/playground/' : 'http://localhost:5173'
+
 export default defineConfig({
   base: '/',
   vite: {
@@ -20,7 +23,7 @@ export default defineConfig({
       { text: '指南', link: '/guide/getting-started' },
       { text: 'API 参考', link: '/api/core' },
       { text: '设计理念', link: '/design' },
-      { text: 'Playground', link: '/playground/', target: '_blank' },
+      { text: 'Playground', link: playgroundUrl, target: '_blank' },
     ],
 
     sidebar: {
