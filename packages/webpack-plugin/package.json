@@ -31,12 +31,15 @@
       "require": "./dist/index.cjs"
     },
     "./report-sink": {
-      "import": "./dist/report-sink.js"
+      "import": "./dist/report-sink.js",
+      "require": "./dist/report-sink.cjs"
     }
   },
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "report-sink.js",
+    "report-sink.cjs",
     "README.md"
   ],
   "scripts": {

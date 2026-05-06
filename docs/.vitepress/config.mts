@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
+  base: '/ai-request-guard/',
   vite: {
     server: {
       host: '0.0.0.0',

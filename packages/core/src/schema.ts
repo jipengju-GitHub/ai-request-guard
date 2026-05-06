@@ -29,7 +29,11 @@ export function validateSchema(id: string, data: unknown, schema: Schema): Schem
 
   if (typeof data !== 'object' || data === null) return diff
 
-  const dataObj = data as Record<string, unknown>
+  // 分页接口 adapter 常返回 Array（如 res.data.records），取第一个有效元素做校验
+  const target = Array.isArray(data) ? data.find((item) => item !== null && item !== undefined) : data
+  if (target === undefined) return diff
+
+  const dataObj = target as Record<string, unknown>
   const schemaKeys = Object.keys(schema)
   const dataKeys = Object.keys(dataObj)
 

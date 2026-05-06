@@ -15,11 +15,14 @@ export default defineConfig([
     ],
     plugins: [typescript({ tsconfig: './tsconfig.json', sourceMap: true })],
   },
-  // Browser report-sink (ESM only — bundled into user's app by webpack)
+  // Browser report-sink (ESM + CJS)
   {
     input: 'src/report-sink.ts',
     external,
-    output: { file: 'dist/report-sink.js', format: 'esm', sourcemap: true },
+    output: [
+      { file: 'dist/report-sink.js', format: 'esm', sourcemap: true },
+      { file: 'dist/report-sink.cjs', format: 'cjs', sourcemap: true },
+    ],
     plugins: [typescript({ tsconfig: './tsconfig.json', sourceMap: true })],
   },
   // Type declarations
