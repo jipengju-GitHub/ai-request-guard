@@ -105,3 +105,43 @@ export function validateSchema(id: string, data: unknown, schema: Schema): Schem
 export function hasDiff(diff: SchemaDiff): boolean {
   return diff.missingFields.length > 0 || diff.typeMismatches.length > 0
 }
+
+/**
+ * 根据 schema 声明的结构递归裁剪数据，只保留 schema 中定义的字段。
+ */
+export function pickBySchema(data: unknown, schema: Schema): unknown {
+  if (data === null || data === undefined) return data
+
+  if (Array.isArray(data)) {
+    const templateItem = Object.values(schema)[0]
+    if (Array.isArray(templateItem) && templateItem[0] && typeof templateItem[0] === 'object') {
+      return data.map(item => pickBySchema(item, templateItem[0] as Schema))
+    }
+    return data
+  }
+
+  if (typeof data !== 'object') return data
+
+  const result: Record<string, unknown> = {}
+  const schemaKeys = Object.keys(schema)
+
+  for (const key of schemaKeys) {
+    if (!(key in (data as Record<string, unknown>))) continue
+    const schemaVal = schema[key]
+    const dataVal = (data as Record<string, unknown>)[key]
+
+    if (Array.isArray(schemaVal)) {
+      if (Array.isArray(dataVal) && schemaVal[0] && typeof schemaVal[0] === 'object') {
+        result[key] = dataVal.map(item => pickBySchema(item, schemaVal[0] as Schema))
+      } else {
+        result[key] = dataVal
+      }
+    } else if (schemaVal !== null && typeof schemaVal === 'object') {
+      result[key] = pickBySchema(dataVal, schemaVal as Schema)
+    } else {
+      result[key] = dataVal
+    }
+  }
+
+  return result
+}

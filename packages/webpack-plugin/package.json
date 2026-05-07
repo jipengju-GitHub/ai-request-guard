@@ -1,6 +1,6 @@
 {
   "name": "@ai-request-guard/webpack-plugin",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Webpack plugin for AIRequestGuard — real-request interception and schema diff HTML report (Vue CLI 4 / webpack 4+)",
   "keywords": [
     "webpack-plugin",

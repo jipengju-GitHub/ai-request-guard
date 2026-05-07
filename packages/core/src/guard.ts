@@ -1,6 +1,6 @@
 import type { GuardConfig, GuardOptions, AdapterFn } from './types'
 import { registry } from './registry'
-import { validateSchema, hasDiff } from './schema'
+import { validateSchema, hasDiff, pickBySchema } from './schema'
 import { resolveMock, setMockDev } from './mock'
 import { reportDiff } from './reporter'
 import { watchUrl, clearWatchMap } from './interceptor'
@@ -87,6 +87,10 @@ function applyAdapter<T>(id: string, raw: unknown, schema: GuardOptions['schema'
     if (hasDiff(diff)) {
       console.warn(`[AIRequestGuard] Schema diff detected for "${id}":`, diff)
     }
+  }
+
+  if (schema) {
+    return pickBySchema(result, schema) as T
   }
 
   return result

@@ -15,7 +15,7 @@
 export { default } from './guard'
 export { default as AIRequestGuard } from './guard'
 export { registry } from './registry'
-export { validateSchema, hasDiff } from './schema'
+export { validateSchema, hasDiff, pickBySchema } from './schema'
 export { reportDiff, getDiffRecords, clearDiffRecords, generateReport } from './reporter'
 export type { GuardOptions, GuardConfig, GuardMode, Schema, AdapterFn } from './types'
 export type { SchemaDiff } from './schema'
