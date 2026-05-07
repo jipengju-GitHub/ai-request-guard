@@ -18,20 +18,17 @@ export default defineConfig([
       {
         file: 'dist/index.js',
         format: 'esm',
-        sourcemap: true,
         exports: 'named',
       },
       {
         file: 'dist/index.cjs',
         format: 'cjs',
-        sourcemap: true,
         exports: 'named',
       },
       {
         file: 'dist/index.umd.js',
         format: 'umd',
         name: 'AIRequestGuard',
-        sourcemap: true,
         exports: 'named',
       },
     ],
@@ -42,7 +39,7 @@ export default defineConfig([
           __DEV__: JSON.stringify(isDev),
         },
       }),
-      typescript({ tsconfig: './tsconfig.json', sourceMap: true }),
+      typescript({ tsconfig: './tsconfig.json', sourceMap: false }),
     ],
   },
   // 类型声明文件
