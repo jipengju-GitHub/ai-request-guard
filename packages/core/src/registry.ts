@@ -1,7 +1,21 @@
 import type { AdapterFn } from './types'
 
+const GLOBAL_KEY = '__AI_REQUEST_GUARD_V0__'
+
+interface GlobalStore {
+  registry: Map<string, AdapterFn>
+}
+
+function getGlobalStore(): GlobalStore {
+  const g = globalThis as any
+  if (!g[GLOBAL_KEY]) {
+    g[GLOBAL_KEY] = { registry: new Map<string, AdapterFn>() }
+  }
+  return g[GLOBAL_KEY]
+}
+
 /** 全局 adapter 注册表，key 为接口 ID，value 为转换函数 */
-const _registry = new Map<string, AdapterFn>()
+const _registry = getGlobalStore().registry
 
 export const registry = {
   /**

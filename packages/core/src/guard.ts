@@ -5,11 +5,24 @@ import { resolveMock, setMockDev } from './mock'
 import { reportDiff } from './reporter'
 import { watchUrl, clearWatchMap } from './interceptor'
 
-/** 全局运行时配置，dev 默认根据 NODE_ENV 自动判断 */
-let _config: GuardConfig = {
-  mode: 'real',
-  dev: typeof process !== 'undefined' ? process.env.NODE_ENV !== 'production' : false,
+const GLOBAL_KEY = '__AI_REQUEST_GUARD_V0__'
+
+function getGlobalConfig(): GuardConfig {
+  const g = globalThis as any
+  if (!g[GLOBAL_KEY]) {
+    g[GLOBAL_KEY] = {}
+  }
+  if (!g[GLOBAL_KEY].config) {
+    g[GLOBAL_KEY].config = {
+      mode: 'real',
+      dev: typeof process !== 'undefined' ? process.env.NODE_ENV !== 'production' : false,
+    }
+  }
+  return g[GLOBAL_KEY].config
 }
+
+/** 全局运行时配置，dev 默认根据 NODE_ENV 自动判断 */
+let _config: GuardConfig = getGlobalConfig()
 
 // 初始化时同步 dev 状态到 mock 模块（生产构建时被 tree-shake）
 if (__DEV__) {
@@ -122,7 +135,7 @@ AIRequestGuard.setMode = function (mode: GuardConfig['mode']): void {
  * AIRequestGuard.configure({ dev: true, mode: 'mock' })
  */
 AIRequestGuard.configure = function (config: GuardConfig): void {
-  _config = { ..._config, ...config }
+  Object.assign(_config, config)
   if (config.dev !== undefined && __DEV__) {
     setMockDev(_config.dev ?? false)
   }
