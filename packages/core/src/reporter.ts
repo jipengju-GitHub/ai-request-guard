@@ -3,6 +3,22 @@ import type { SchemaDiff } from './schema'
 /** 运行时收集的所有接口 diff 记录 */
 const _records: SchemaDiff[] = []
 
+let _flushTimer: ReturnType<typeof setTimeout> | null = null
+
+function flushToServer(): void {
+  if (typeof navigator === 'undefined' || !navigator.sendBeacon) return
+  if (!_records.length) return
+  navigator.sendBeacon(
+    '/__ai-guard/report',
+    new Blob([JSON.stringify(_records)], { type: 'application/json' })
+  )
+}
+
+function scheduleFlush(): void {
+  if (_flushTimer) clearTimeout(_flushTimer)
+  _flushTimer = setTimeout(flushToServer, 500)
+}
+
 /**
  * 收集单次请求的 schema diff，追加到内存报告队列。
  * 仅在 dev 构建中有效，生产构建会被 tree-shake。
@@ -17,6 +33,7 @@ export function reportDiff(diff: SchemaDiff): void {
   } else {
     _records[idx] = diff
   }
+  scheduleFlush()
 }
 
 /**
