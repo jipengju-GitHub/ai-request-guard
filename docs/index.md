@@ -28,5 +28,5 @@ features:
 
   - icon: 📊
     title: 差异报告
-    details: 配合 Vite 插件，真实请求触发后自动生成 HTML 差异报告，直观展示哪些接口字段与约定不符。
+    details: 配合 Vite / Webpack 插件，真实请求触发后自动生成 HTML 差异报告，直观展示哪些接口字段与约定不符。
 ---
