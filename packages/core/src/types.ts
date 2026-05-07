@@ -1,4 +1,6 @@
-export type Schema = Record<string, unknown | Schema | Schema[]>
+export interface Schema {
+  [key: string]: unknown | Schema | Schema[]
+}
 
 /** adapter 转换函数类型：接收原始 DTO，返回 ViewModel */
 export type AdapterFn<T = unknown> = (raw: unknown) => T
