@@ -160,7 +160,9 @@ AIRequestGuard.register('user-detail', (raw) => {
 
 ## 推荐的文件组织方式
 
-没有强制要求，但建议 adapter 和 API 请求函数放在同一文件，一个文件管一个接口模块：
+### 小型项目
+
+adapter 和请求函数放同一文件，结构简单直接：
 
 ```
 src/
@@ -169,6 +171,65 @@ src/
     order.js    ← register('order-list', ...) + getOrderList()
   main.js       ← import './api/user'; import './api/order'（确保 register 先执行）
 ```
+
+### 中大型项目（推荐）
+
+按模块拆分，adapter 文件只负责注册，不 export 任何东西；API 请求函数直接从 `@ai-request-guard/core` import，不绕 adapter 文件：
+
+```
+src/
+  api/
+    guard-setup.js        ← 唯一的 configure 入口 + 集中 import 所有 adapter
+    modules/
+      common/
+        index.js          ← API 请求函数，直接 import core
+        adapter.js        ← 只做 register，无 export
+      user/
+        index.js
+        adapter.js
+  main.js                 ← 最早 import './api/guard-setup'
+```
+
+`guard-setup.js`：
+
+```js
+import AIRequestGuard from '@ai-request-guard/core'
+
+AIRequestGuard.configure({ dev: process.env.NODE_ENV !== 'production' })
+
+// 集中触发所有 adapter 的注册副作用
+import './modules/common/adapter'
+import './modules/user/adapter'
+```
+
+`modules/common/adapter.js`：
+
+```js
+import AIRequestGuard from '@ai-request-guard/core'
+
+AIRequestGuard.register('employeePage', (raw) => {
+  // ... 映射逻辑
+})
+
+// 不需要 export 任何东西
+```
+
+`modules/common/index.js`：
+
+```js
+import AIRequestGuard from '@ai-request-guard/core'
+
+export default class CommonApi {
+  static async getEmployeePage(params) {
+    return await AIRequestGuard({
+      id: 'employeePage',
+      request: () => POST({ url: 'employee/page' }, params),
+    })
+  }
+}
+```
+
+这样 `configure` 只在一处调用，新增接口只需在 `guard-setup.js` 加一行 import，维护成本最低。
 
 ---
 

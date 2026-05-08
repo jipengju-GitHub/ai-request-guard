@@ -89,7 +89,7 @@ function applyAdapter<T>(id: string, raw: unknown, schema: GuardOptions['schema'
     }
   }
 
-  if (schema) {
+  if (schema && Object.keys(schema).length > 0) {
     return pickBySchema(result, schema) as T
   }
 
