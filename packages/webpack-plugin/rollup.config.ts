@@ -1,4 +1,5 @@
 import typescript from '@rollup/plugin-typescript'
+import replace from '@rollup/plugin-replace'
 import dts from 'rollup-plugin-dts'
 import { defineConfig } from 'rollup'
 
@@ -10,7 +11,10 @@ export default defineConfig([
       { file: 'dist/index.js', format: 'esm', exports: 'named' },
       { file: 'dist/index.cjs', format: 'cjs', exports: 'named' },
     ],
-    plugins: [typescript({ tsconfig: './tsconfig.json', sourceMap: false, declaration: false, declarationMap: false, include: ['src/**/*', '../ai/src/**/*', '../core/src/**/*'] })],
+    plugins: [
+      replace({ preventAssignment: true, values: { __DEV__: 'false' } }),
+      typescript({ tsconfig: './tsconfig.json', sourceMap: false, declaration: false, declarationMap: false, include: ['src/**/*', '../ai/src/**/*', '../core/src/**/*'] }),
+    ],
   },
   {
     input: 'src/report-sink.ts',

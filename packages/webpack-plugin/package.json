@@ -1,8 +1,12 @@
 {
   "name": "@ai-request-guard/webpack-plugin",
-  "version": "0.2.0-alpha.3",
+  "version": "0.2.0-alpha.4",
   "description": "Webpack plugin for AIRequestGuard — schema diff HTML report via devServer",
-  "keywords": ["webpack-plugin", "ai-request-guard", "schema-diff"],
+  "keywords": [
+    "webpack-plugin",
+    "ai-request-guard",
+    "schema-diff"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -29,7 +33,12 @@
     }
   },
   "types": "./dist/index.d.ts",
-  "files": ["dist", "report-sink.js", "report-sink.cjs", "README.md"],
+  "files": [
+    "dist",
+    "report-sink.js",
+    "report-sink.cjs",
+    "README.md"
+  ],
   "scripts": {
     "build": "rollup -c rollup.config.ts --configPlugin typescript",
     "dev": "rollup -c rollup.config.ts --configPlugin typescript --watch"
@@ -38,12 +47,15 @@
     "webpack": ">=4.0.0"
   },
   "peerDependenciesMeta": {
-    "webpack": { "optional": true }
+    "webpack": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@ai-request-guard/core": "workspace:*"
   },
   "devDependencies": {
+    "@rollup/plugin-replace": "^6.0.3",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/node": "^22.0.0",
     "rollup": "^4.24.0",
