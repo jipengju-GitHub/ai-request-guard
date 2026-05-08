@@ -1,5 +1,8 @@
-import { writeFileSync } from 'fs'
+import { writeFileSync, existsSync, mkdirSync } from 'fs'
 import { resolve } from 'path'
+import { inferSchema } from '../../core/src/index'
+import { generateAdapter, openaiCompatible, anthropic, buildGuiHtml } from '../../ai/src/index'
+import type { AIProvider, OpenAICompatibleOptions, AnthropicOptions } from '../../ai/src/types'
 
 /** Mirror of SchemaDiff from @ai-request-guard/core — kept local to avoid Node import issues */
 interface SchemaDiff {
@@ -14,6 +17,15 @@ interface RawRecord {
   url: string
   rawKeys: string[]
   capturedAt: string
+}
+
+export interface AIGuardAIOptions {
+  provider: 'openai-compatible' | 'anthropic'
+  baseURL?: string
+  apiKey: string
+  model?: string
+  /** @default 2000 */
+  maxTokens?: number
 }
 
 export interface AIGuardWebpackPluginOptions {
@@ -33,6 +45,20 @@ export interface AIGuardWebpackPluginOptions {
    * @default ['GET']
    */
   methods?: string[]
+  /**
+   * AI provider 配置，配置后启用 /__ai-guard GUI 管理界面（仅 dev 环境）。
+   */
+  ai?: AIGuardAIOptions
+  /**
+   * adapter 文件输出目录，相对于项目根目录。
+   * @default 'src/adapters'
+   */
+  adaptersDir?: string
+  /**
+   * 生成文件的扩展名。
+   * @default 'ts'
+   */
+  fileType?: 'ts' | 'js'
 }
 
 function escHtml(str: string): string {
@@ -199,6 +225,9 @@ export class AIGuardWebpackPlugin {
   private readonly reporting: boolean
   private readonly outFile: string
   private readonly allowedMethods: string[]
+  private readonly aiOpts: AIGuardAIOptions | undefined
+  private readonly adaptersDir: string
+  private readonly fileType: 'ts' | 'js'
 
   private readonly records = new Map<string, SchemaDiff>()
   private readonly rawRecords = new Map<string, RawRecord>()
@@ -208,6 +237,28 @@ export class AIGuardWebpackPlugin {
     this.reporting = options.reporting ?? false
     this.outFile = options.outFile ?? 'ai-request-guard-report.html'
     this.allowedMethods = (options.methods ?? ['GET']).map((m) => m.toUpperCase())
+    this.aiOpts = options.ai
+    this.adaptersDir = options.adaptersDir ?? 'src/adapters'
+    this.fileType = options.fileType ?? 'ts'
+  }
+
+  private buildProvider(): AIProvider | null {
+    const aiOpts = this.aiOpts
+    if (!aiOpts) return null
+    if (aiOpts.provider === 'anthropic') {
+      const opts: AnthropicOptions = { apiKey: aiOpts.apiKey }
+      if (aiOpts.model) opts.model = aiOpts.model
+      if (aiOpts.maxTokens) opts.maxTokens = aiOpts.maxTokens
+      return anthropic(opts)
+    }
+    if (!aiOpts.baseURL) throw new Error('[ai-request-guard] ai.baseURL is required for openai-compatible provider')
+    const opts: OpenAICompatibleOptions = {
+      baseURL: aiOpts.baseURL,
+      apiKey: aiOpts.apiKey,
+      model: aiOpts.model ?? 'deepseek-chat',
+    }
+    if (aiOpts.maxTokens) opts.maxTokens = aiOpts.maxTokens
+    return openaiCompatible(opts)
   }
 
   private writeReport(): void {
@@ -218,16 +269,12 @@ export class AIGuardWebpackPlugin {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apply(compiler: any): void {
-    if (!this.reporting) return
+    if (!this.reporting && !this.aiOpts) return
 
     this.rootDir = compiler.context ?? process.cwd()
 
     const self = this
 
-    // Hook into webpack-dev-server.
-    // Vue CLI 4 uses webpack-dev-server v3 which exposes `compiler.options.devServer.before`.
-    // webpack-dev-server v4 uses `setupMiddlewares`.
-    // We use the compiler `afterPlugins` hook to append our middleware configuration.
     compiler.hooks.afterPlugins.tap('AIGuardWebpackPlugin', () => {
       const devServerOptions = compiler.options.devServer ?? {}
 
@@ -260,6 +307,13 @@ export class AIGuardWebpackPlugin {
 
       compiler.options.devServer = devServerOptions
     })
+
+    // Print GUI address after compilation (server is up by then)
+    compiler.hooks.done.tap('AIGuardWebpackPlugin', () => {
+      const port = compiler.options.devServer?.port ?? 8080
+      const host = 'localhost'
+      console.log(`\n  \x1b[32m➜\x1b[0m  AIRequestGuard GUI:  \x1b[36mhttp://${host}:${port}/__ai-guard\x1b[0m\n`)
+    })
   }
 
   /**
@@ -284,48 +338,110 @@ export class AIGuardWebpackPlugin {
   private _applyMiddlewares(app: any): void {
     const self = this
 
-    // express-style middleware registration (both v3 and v4 expose app.use / app.post / app.all)
-    const useRoute = (path: string, handler: (req: import('http').IncomingMessage, res: import('http').ServerResponse) => void) => {
-      // Prefer app.all for maximum compatibility; fall back to app.use
-      if (typeof app.all === 'function') {
-        app.all(path, handler)
-      } else {
-        app.use(path, handler)
+    // Single middleware handling all /__ai-guard* routes to avoid express prefix-stripping issues
+    app.use(async (req: import('http').IncomingMessage, res: import('http').ServerResponse, next: () => void) => {
+      const url = req.url ?? '/'
+      const method = req.method ?? 'GET'
+
+      if (!url.startsWith('/__ai-guard')) { next(); return }
+
+      // GET /__ai-guard → GUI 页面
+      if (method === 'GET' && (url === '/__ai-guard' || url === '/__ai-guard/')) {
+        const html = buildGuiHtml({ aiConfigured: !!self.aiOpts, adaptersDir: self.adaptersDir, fileType: self.fileType })
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end(html)
+        return
       }
-    }
 
-    useRoute('/__ai-guard/report', async (req, res) => {
-      if (req.method !== 'POST') { res.writeHead(405).end(); return }
-      const body = await readBody(req)
-      try {
-        const incoming: SchemaDiff[] = JSON.parse(body)
-        for (const diff of incoming) self.records.set(diff.id, diff)
-        self.writeReport()
-        console.log(`[ai-request-guard] diff report updated → ${self.outFile} (${self.records.size} interfaces)`)
-      } catch { /* malformed — ignore */ }
-      res.writeHead(204).end()
-    })
-
-    useRoute('/__ai-guard/raw', async (req, res) => {
-      if (req.method !== 'POST') { res.writeHead(405).end(); return }
-      const body = await readBody(req)
-      try {
-        const { url, raw } = JSON.parse(body) as { url: string; method: string; raw: unknown }
-        if (typeof raw === 'object' && raw !== null) {
-          const matchedId = findIdByUrl(url, self.records)
-          if (matchedId) {
-            self.rawRecords.set(matchedId, {
-              id: matchedId,
-              url,
-              rawKeys: Object.keys(raw as Record<string, unknown>),
-              capturedAt: new Date().toLocaleTimeString(),
-            })
-            self.writeReport()
-            console.log(`[ai-request-guard] raw captured: ${matchedId} ← ${url}`)
-          }
+      // POST /__ai-guard/generate
+      if (method === 'POST' && url === '/__ai-guard/generate') {
+        const body = await readBody(req)
+        const provider = self.buildProvider()
+        if (!provider) {
+          res.writeHead(400, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: '未配置 AI provider，请在插件配置中添加 ai.apiKey' }))
+          return
         }
-      } catch { /* malformed — ignore */ }
-      res.writeHead(204).end()
+        try {
+          const { id, mock, raw } = JSON.parse(body) as { id: string; mock: Record<string, unknown>; raw: Record<string, unknown> }
+          const schema = inferSchema(mock)
+          const result = await generateAdapter({ provider, adapterId: id, schema, raw })
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify(result))
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: String(err) }))
+        }
+        return
+      }
+
+      // POST /__ai-guard/write-file
+      if (method === 'POST' && url === '/__ai-guard/write-file') {
+        const body = await readBody(req)
+        try {
+          const { id, code } = JSON.parse(body) as { id: string; code: string }
+          const fileName = id.replace(/[^a-zA-Z0-9-_]/g, '-') + '.' + self.fileType
+          const dir = resolve(self.rootDir, self.adaptersDir)
+          const filePath = resolve(dir, fileName)
+          if (existsSync(filePath)) {
+            res.writeHead(409, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ error: `文件已存在: ${filePath}，请手动处理` }))
+            return
+          }
+          mkdirSync(dir, { recursive: true })
+          writeFileSync(filePath, code, 'utf-8')
+          const relPath = self.adaptersDir.replace(/\\/g, '/') + '/' + fileName
+          console.log(`[ai-request-guard] adapter written → ${relPath}`)
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ path: relPath }))
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: String(err) }))
+        }
+        return
+      }
+
+      if (!self.reporting) { next(); return }
+
+      // POST /__ai-guard/report
+      if (url === '/__ai-guard/report') {
+        if (method !== 'POST') { res.writeHead(405).end(); return }
+        const body = await readBody(req)
+        try {
+          const incoming: SchemaDiff[] = JSON.parse(body)
+          for (const diff of incoming) self.records.set(diff.id, diff)
+          self.writeReport()
+          console.log(`[ai-request-guard] diff report updated → ${self.outFile} (${self.records.size} interfaces)`)
+        } catch { /* malformed — ignore */ }
+        res.writeHead(204).end()
+        return
+      }
+
+      // POST /__ai-guard/raw
+      if (url === '/__ai-guard/raw') {
+        if (method !== 'POST') { res.writeHead(405).end(); return }
+        const body = await readBody(req)
+        try {
+          const { url: reqUrl, raw } = JSON.parse(body) as { url: string; method: string; raw: unknown }
+          if (typeof raw === 'object' && raw !== null) {
+            const matchedId = findIdByUrl(reqUrl, self.records)
+            if (matchedId) {
+              self.rawRecords.set(matchedId, {
+                id: matchedId,
+                url: reqUrl,
+                rawKeys: Object.keys(raw as Record<string, unknown>),
+                capturedAt: new Date().toLocaleTimeString(),
+              })
+              self.writeReport()
+              console.log(`[ai-request-guard] raw captured: ${matchedId} ← ${reqUrl}`)
+            }
+          }
+        } catch { /* malformed — ignore */ }
+        res.writeHead(204).end()
+        return
+      }
+
+      next()
     })
   }
 

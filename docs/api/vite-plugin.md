@@ -30,6 +30,9 @@ function aiRequestGuardPlugin(options?: AIGuardVitePluginOptions): Plugin
 | `options.reporting` | `boolean` | `false` | 是否启用上报功能；`false` 时虚拟模块为空操作，不会报错 |
 | `options.outFile` | `string` | `'ai-request-guard-report.html'` | 报告文件输出路径，相对于项目根目录 |
 | `options.methods` | `string[]` | `['GET']` | 拦截的 HTTP 方法列表 |
+| `options.ai` | `AIGuardAIOptions` | — | AI provider 配置，配置后启用 `/__ai-guard` GUI（仅 dev 环境） |
+| `options.adaptersDir` | `string` | `'src/adapters'` | adapter 文件输出目录，相对于项目根目录 |
+| `options.fileType` | `'ts' \| 'js'` | `'ts'` | 生成文件的扩展名 |
 
 **示例：**
 
@@ -92,6 +95,36 @@ interface AIGuardVitePluginOptions {
    * @default ['GET']
    */
   methods?: string[]
+
+  /**
+   * AI provider 配置，配置后启用 /__ai-guard GUI 管理界面（仅 dev 环境）。
+   */
+  ai?: AIGuardAIOptions
+
+  /**
+   * adapter 文件输出目录，相对于项目根目录。
+   * @default 'src/adapters'
+   */
+  adaptersDir?: string
+
+  /**
+   * 生成文件的扩展名。
+   * @default 'ts'
+   */
+  fileType?: 'ts' | 'js'
+}
+
+interface AIGuardAIOptions {
+  /** AI provider 类型 */
+  provider: 'openai-compatible' | 'anthropic'
+  /** openai-compatible 模式必填：API 基础地址 */
+  baseURL?: string
+  /** API 密钥 */
+  apiKey: string
+  /** 模型名称（openai-compatible 默认 'deepseek-chat'） */
+  model?: string
+  /** 最大输出 token 数，默认 2000 */
+  maxTokens?: number
 }
 ```
 
@@ -151,9 +184,97 @@ declare module 'virtual:ai-request-guard/report-sink' {
 
 ---
 
+## Adapter Generator GUI（`/__ai-guard`）
+
+配置 `ai` 选项后，插件在 Vite devServer 上自动挂载 GUI 管理页面。dev 服务启动后，终端会打印访问地址：
+
+```
+  ➜  AIRequestGuard GUI:  http://localhost:5173/__ai-guard
+```
+
+### 使用流程
+
+1. 打开 `/__ai-guard` 页面
+2. 填写 **Adapter ID**（对应最终的文件名和 register id，如 `user-detail`）
+3. 粘贴 **Mock JSON**（前端期望的数据结构）
+4. 粘贴 **Raw JSON**（后端真实返回数据）
+5. 点击「生成 Adapter」，等待 AI 返回带置信度标注的 adapter 草稿
+6. 点击「复制代码」粘贴到文件，或点击「写入文件」直接写入 `adaptersDir`
+
+### 置信度标注
+
+| 标注 | 含义 | 建议操作 |
+|------|------|---------|
+| `// ✅` | 字段名精确匹配或驼峰-下划线转换，类型一致 | 可直接使用 |
+| `// ❓` | 语义相似但名称不同，需人工确认 | 核对后使用 |
+| `// ❌` | 未找到对应字段，已留空 | 手动填写 |
+
+### 配置示例
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import { aiRequestGuardPlugin } from '@ai-request-guard/vite-plugin'
+
+export default defineConfig({
+  plugins: [
+    aiRequestGuardPlugin({
+      ai: {
+        provider: 'openai-compatible',
+        baseURL: 'https://api.deepseek.com',
+        apiKey: process.env.DEEPSEEK_KEY,
+        model: 'deepseek-chat',
+      },
+      adaptersDir: 'src/adapters',
+      fileType: 'ts',
+    }),
+  ],
+})
+```
+
+::: tip 未配置 ai 时的降级
+未配置 `ai` 选项时，`/__ai-guard` 页面仍可访问，但生成按钮禁用，提示"未配置 AI provider"。
+:::
+
+::: warning apiKey 安全
+`apiKey` 只存在于 Vite 插件的 Node 层（devServer），不会进入浏览器产物。生产构建时插件通过 `apply: 'serve'` 自动隔离，GUI 完全不存在。
+:::
+
+---
+
 ## devServer 端点
 
 插件在 Vite devServer 上注册以下端点（仅开发环境）：
+
+### GET /__ai-guard
+
+返回 Adapter Generator GUI 页面（HTML需配置 `ai` 选项；未配置时页面仍可访问但生成功能禁用。
+
+### POST /__ai-guard/generate
+
+调用 AI 生成 adapter 初稿。请求体：
+
+```ts
+{ id: string; mock: Record<string, unknown>; raw: Record<string, unknown> }
+```
+
+响应体：
+
+```ts
+{ code: string; warnings: string[] }
+```
+
+`code` 为带置信度标注的 `AIRequestGuard.register(...)` 调用代码字符串，`warnings` 列出 schema 中未能匹配的字段。
+
+### POST /__ai-guard/write-file
+
+将 adapter 代码写入 `adaptersDir` 对应文件。请求体：
+
+```ts
+{ id: string; code: string }
+```
+
+文件已存在时返回 `409`，提示用户手动处理。成功时返回 `{ path: string }`（相对路径）。
 
 ### POST /__ai-guard/report
 

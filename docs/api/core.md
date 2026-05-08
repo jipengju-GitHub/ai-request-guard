@@ -188,6 +188,66 @@ AIRequestGuard.clearWatch(): void
 
 ---
 
+## inferSchema()
+
+从 mock 数据对象推导 schema，用于替代手写 schema。
+
+```ts
+function inferSchema(mockData: Record<string, unknown>): Schema
+```
+
+推导规则：保留字段名，将字段值替换为对应类型的零值（`string → ''`，`number → 0`，`boolean → false`，`array → []`，`object → {}`，其余 → `null`）。
+
+**示例：**
+
+::: code-group
+
+```js [JS]
+import { inferSchema } from '@ai-request-guard/core'
+
+const mock = { userName: '张三', mobile: '13800138000', age: 28, active: true }
+const schema = inferSchema(mock)
+// => { userName: '', mobile: '', age: 0, active: false }
+
+const user = await AIRequestGuard({
+  id: 'user-detail',
+  request: () => fetch('/api/user').then(r => r.json()),
+  mockData: mock,
+  schema: inferSchema(mock),  // 替代手写 schema
+})
+```
+
+```ts [TS]
+import { inferSchema } from '@ai-request-guard/core'
+
+const mock = { userName: '张三', mobile: '13800138000', age: 28, active: true }
+const schema = inferSchema(mock)
+// => { userName: '', mobile: '', age: 0, active: false }
+
+const user = await AIRequestGuard({
+  id: 'user-detail',
+  request: () => fetch('/api/user').then(r => r.json()),
+  mockData: mock,
+  schema: inferSchema(mock),  // 替代手写 schema
+})
+```
+
+:::
+
+::: tip 使用 mockjs 的项目
+`inferSchema` 只接收纯 JSON 对象，不解析 mockjs 模板语法。使用 mockjs 的项目，需先调用 `Mock.mock(template)` 得到结果再传入：
+
+```ts
+import Mock from 'mockjs'
+import { inferSchema } from '@ai-request-guard/core'
+
+const mock = Mock.mock({ 'id|1-100': 1, userName: '@cname' })
+schema: inferSchema(mock)  // 传执行结果，不传模板
+```
+:::
+
+---
+
 ## validateSchema()
 
 对 adapter 输出与期望 schema 进行 diff 校验，返回差异结果。

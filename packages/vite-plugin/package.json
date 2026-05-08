@@ -1,6 +1,6 @@
 {
   "name": "@ai-request-guard/vite-plugin",
-  "version": "0.1.9",
+  "version": "0.2.0-alpha.1",
   "description": "Vite plugin for AIRequestGuard — real-request interception and schema diff HTML report",
   "keywords": [
     "vite-plugin",
@@ -26,6 +26,7 @@
   "module": "./dist/index.js",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     }
@@ -42,6 +43,9 @@
   },
   "peerDependencies": {
     "vite": ">=4.0.0"
+  },
+  "dependencies": {
+    "@ai-request-guard/ai": "workspace:*"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.6",

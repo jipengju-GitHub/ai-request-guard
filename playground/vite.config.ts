@@ -34,7 +34,15 @@ export default defineConfig(({ mode }) => ({
     __DEV__: mode !== 'production',
   },
   plugins: [
-    aiRequestGuardPlugin(),
+    aiRequestGuardPlugin({
+      ai: {
+        provider: 'openai-compatible',
+        baseURL: 'https://api.deepseek.com',
+        apiKey: process.env.DEEPSEEK_KEY ?? '',
+        model: 'deepseek-chat',
+      },
+      adaptersDir: 'src/adapters',
+    }),
     {
       name: 'playground-mock-api',
       configureServer(server) {

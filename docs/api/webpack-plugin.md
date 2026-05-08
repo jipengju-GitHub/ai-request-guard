@@ -212,8 +212,69 @@ interface AIGuardWebpackPluginOptions {
    * @default ['GET']
    */
   methods?: string[]
+
+  /**
+   * AI provider 配置，配置后启用 /__ai-guard GUI 管理界面（仅 dev 环境）。
+   */
+  ai?: AIGuardAIOptions
+
+  /**
+   * adapter 文件输出目录，相对于项目根目录。
+   * @default 'src/adapters'
+   */
+  adaptersDir?: string
+
+  /**
+   * 生成文件的扩展名。
+   * @default 'ts'
+   */
+  fileType?: 'ts' | 'js'
+}
+
+interface AIGuardAIOptions {
+  /** AI provider 类型 */
+  provider: 'openai-compatible' | 'anthropic'
+  /** openai-compatible 模式必填：API 基础地址 */
+  baseURL?: string
+  /** API 密钥 */
+  apiKey: string
+  /** 模型名称（openai-compatible 默认 'deepseek-chat'） */
+  model?: string
+  /** 最大输出 token 数，默认 2000 */
+  maxTokens?: number
 }
 ```
+
+---
+
+## Adapter Generator GUI（`/__ai-guard`）
+
+配置 `ai` 选项后，插件在 webpack-dev-server 上自动挂载 GUI 管理页面。dev 服务启动后，终端会打印访问地址：
+
+```
+  ➜  AIRequestGuard GUI:  http://localhost:8080/__ai-guard
+```
+
+### 配置示例
+
+```js
+// vue.config.js
+const { AIGuardWebpackPlugin } = require('@ai-request-guard/webpack-plugin')
+
+const aiGuardPlugin = new AIGuardWebpackPlugin({
+  reporting: true,
+  ai: {
+    provider: 'openai-compatible',
+    baseURL: 'https://api.deepseek.com',
+    apiKey: process.env.DEEPSEEK_KEY,
+    model: 'deepseek-chat',
+  },
+  adaptersDir: 'src/adapters',
+  fileType: 'ts',
+})
+```
+
+使用方式与置信度标注说明与 [vite-plugin GUI 章节](/api/vite-plugin#adapter-generator-gui-ai-guard) 完全相同。
 
 ## 环境兼容性
 
@@ -221,10 +282,11 @@ interface AIGuardWebpackPluginOptions {
 
 | 版本 | 支持 |
 |------|------|
-| Node 14.x+ | ✅ 支持 |
-| Node 12.x 及以下 | ❌ 不支持 |
+| Node 18.x+ | ✅ 推荐（支持原生 fetch，AI 功能可用） |
+| Node 16.x | ⚠️ 基础功能（reporting）可用，`ai` 选项不可用（缺少原生 fetch） |
+| Node 14.x 及以下 | ❌ 不支持 |
 
-> webpack 插件运行在构建工具侧（Node 环境），仅依赖 `fs`、`path` 等内置模块，无 `node:` 前缀，最低兼容 **Node 14.0**。
+> 不配置 `ai` 选项时，插件仅依赖 `fs`、`path` 等内置模块，Node 16 可用。配置 `ai` 选项后需要原生 `fetch`（Node 18+）。
 
 ### webpack-dev-server 版本兼容性
 

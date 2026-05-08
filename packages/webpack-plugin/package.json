@@ -1,6 +1,6 @@
 {
   "name": "@ai-request-guard/webpack-plugin",
-  "version": "0.1.9",
+  "version": "0.2.0-alpha.1",
   "description": "Webpack plugin for AIRequestGuard — schema diff HTML report via devServer",
   "keywords": ["webpack-plugin", "ai-request-guard", "schema-diff"],
   "license": "MIT",
@@ -19,6 +19,7 @@
   "module": "./dist/index.js",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },

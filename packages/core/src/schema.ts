@@ -1,5 +1,40 @@
 import type { Schema } from './types'
 
+/**
+ * 从 mock 数据推导 schema 结构。
+ *
+ * 规则：string → ''，number → 0，boolean → false，null/undefined → null，
+ * 数组取第一个元素递归推导，对象递归处理。
+ *
+ * 只接收纯 JSON 对象，不解析 mockjs 模板语法。
+ * mockjs 用户需先执行 Mock.mock(template) 再将结果传入。
+ */
+export function inferSchema(mock: Record<string, unknown>): Schema {
+  return inferValue(mock) as Schema
+}
+
+function inferValue(val: unknown): unknown {
+  if (val === null || val === undefined) return null
+  if (Array.isArray(val)) {
+    const first = val.find((item) => item !== null && item !== undefined)
+    if (first !== undefined && typeof first === 'object') {
+      return [inferValue(first)]
+    }
+    return []
+  }
+  if (typeof val === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const key of Object.keys(val as Record<string, unknown>)) {
+      result[key] = inferValue((val as Record<string, unknown>)[key])
+    }
+    return result
+  }
+  if (typeof val === 'string') return ''
+  if (typeof val === 'number') return 0
+  if (typeof val === 'boolean') return false
+  return null
+}
+
 /** adapter 输出与 schema 定义之间的差异描述 */
 export interface SchemaDiff {
   /** 对应的接口 ID */

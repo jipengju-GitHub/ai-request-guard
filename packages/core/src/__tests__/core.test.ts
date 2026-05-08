@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { validateSchema, hasDiff } from '../schema'
+import { validateSchema, hasDiff, inferSchema } from '../schema'
 import { registry } from '../registry'
 import { resolveMock, setMockDev } from '../mock'
 import { reportDiff, getDiffRecords, clearDiffRecords } from '../reporter'
@@ -224,5 +224,49 @@ describe('reporter', () => {
     reportDiff({ id: 'api-3', missingFields: [], extraFields: [], typeMismatches: [] })
     clearDiffRecords()
     expect(getDiffRecords()).toHaveLength(0)
+  })
+})
+
+// ══════════════════════════════════════════════════════════
+// inferSchema
+// ══════════════════════════════════════════════════════════
+
+describe('inferSchema', () => {
+  it('基础类型推导', () => {
+    const schema = inferSchema({ name: '张三', age: 28, active: true })
+    expect(schema).toEqual({ name: '', age: 0, active: false })
+  })
+
+  it('null / undefined 字段推导为 null', () => {
+    const schema = inferSchema({ a: null, b: undefined })
+    expect(schema).toEqual({ a: null, b: null })
+  })
+
+  it('嵌套对象递归推导', () => {
+    const schema = inferSchema({ user: { id: 1, name: 'foo' } })
+    expect(schema).toEqual({ user: { id: 0, name: '' } })
+  })
+
+  it('数组取第一个元素推导', () => {
+    const schema = inferSchema({ list: [{ id: 1, label: 'a' }] })
+    expect(schema).toEqual({ list: [{ id: 0, label: '' }] })
+  })
+
+  it('空数组推导为 []', () => {
+    const schema = inferSchema({ list: [] })
+    expect(schema).toEqual({ list: [] })
+  })
+
+  it('数组元素非对象时推导为 []', () => {
+    const schema = inferSchema({ tags: ['vue', 'ts'] })
+    expect(schema).toEqual({ tags: [] })
+  })
+
+  it('inferSchema 输出可直接作为 validateSchema 的 schema 参数', () => {
+    const mock = { userName: '张三', mobile: '13800138000', age: 28 }
+    const schema = inferSchema(mock)
+    const diff = validateSchema('test', { userName: 'foo', mobile: '138', age: 30 }, schema)
+    expect(diff.missingFields).toEqual([])
+    expect(diff.typeMismatches).toEqual([])
   })
 })

@@ -4,10 +4,6 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
-    "declaration": true,
-    "declarationDir": "./dist",
-    "outDir": "./dist",
-    "rootDir": "./src",
     "types": ["node"],
     "esModuleInterop": true,
     "skipLibCheck": true

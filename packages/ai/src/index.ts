@@ -1,0 +1,5 @@
+export { openaiCompatible, anthropic } from './provider'
+export { generateAdapter } from './generate'
+export { SYSTEM_PROMPT, buildUserPrompt } from './prompt'
+export { buildGuiHtml } from './gui'
+export type { AIProvider, OpenAICompatibleOptions, AnthropicOptions, GenerateOptions, GenerateResult } from './types'
