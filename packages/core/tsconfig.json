@@ -15,5 +15,6 @@
     "sourceMap": false
   },
   "include": ["src/**/*"],
+  "files": ["src/env.d.ts"],
   "exclude": ["node_modules", "dist"]
 }
