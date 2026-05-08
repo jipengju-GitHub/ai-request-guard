@@ -1,8 +1,7 @@
 import type { Plugin, ViteDevServer } from 'vite'
-import { writeFileSync, existsSync, mkdirSync } from 'fs'
+import { writeFileSync } from 'fs'
 import { resolve } from 'path'
-import { inferSchema } from '../../core/src/index'
-import { generateAdapter, openaiCompatible, anthropic, buildGuiHtml } from '../../ai/src/index'
+import { openaiCompatible, anthropic, startGuiServer } from '../../ai/src/index'
 import type { AIProvider, OpenAICompatibleOptions, AnthropicOptions } from '../../ai/src/types'
 
 /** Mirror of SchemaDiff from @ai-request-guard/core — kept local to avoid Node import issues */
@@ -65,6 +64,10 @@ export interface AIGuardVitePluginOptions {
    * @default 'ts'
    */
   fileType?: 'ts' | 'js'
+  /**
+   * GUI 管理界面端口。不填时自动取 devServer 端口 + 1（如有冲突则继续 +1 探测）。
+   */
+  guiPort?: number
 }
 
 const VIRTUAL_MODULE_ID = 'virtual:ai-request-guard/report-sink'
@@ -310,82 +313,37 @@ export { flushReport }
     },
 
     configureServer(server: ViteDevServer) {
-      // Print GUI address after server starts
-      server.httpServer?.once('listening', () => {
+      // 启动独立端口的 GUI server（同进程，devServer 关闭时自动退出）
+      server.httpServer?.once('listening', async () => {
         const address = server.httpServer?.address()
-        const port = typeof address === 'object' && address ? address.port : server.config.server.port ?? 5173
+        const devServerPort = typeof address === 'object' && address ? address.port : server.config.server.port ?? 5173
         const host = 'localhost'
-        server.config.logger.info(
-          `  \x1b[32m➜\x1b[0m  AIRequestGuard GUI:  \x1b[36mhttp://${host}:${port}/__ai-guard\x1b[0m`,
-          { timestamp: false }
-        )
-      })
 
-      // ── /__ai-guard GUI 路由（AI 能力，独立于 reporting 开关）──────────────
-      server.middlewares.use('/__ai-guard', async (req, res, next) => {
-        const url = req.url ?? '/'
-        const method = req.method ?? 'GET'
+        try {
+          const { server: guiServer, port: guiPort } = await startGuiServer({
+            devServerPort,
+            guiPort: options.guiPort,
+            aiConfigured: !!aiOpts,
+            adaptersDir,
+            fileType,
+            rootDir,
+            buildProvider,
+            onLog: (msg) => server.config.logger.info(msg, { timestamp: true }),
+          })
 
-        // GET /__ai-guard → 返回 GUI 页面
-        if (method === 'GET' && (url === '/' || url === '')) {
-          const html = buildGuiHtml({ aiConfigured: !!aiOpts, adaptersDir, fileType })
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-          res.end(html)
-          return
+          server.config.logger.info(
+            `  \x1b[32m➜\x1b[0m  AIRequestGuard GUI:  \x1b[36mhttp://${host}:${guiPort}\x1b[0m`,
+            { timestamp: false }
+          )
+
+          server.httpServer?.once('close', () => guiServer.close())
+        } catch (err) {
+          server.config.logger.warn(`[ai-request-guard] GUI server failed to start: ${err}`, { timestamp: true })
         }
-
-        // POST /__ai-guard/generate → 调 AI 生成 adapter
-        if (method === 'POST' && url === '/generate') {
-          const body = await readBody(req)
-          const provider = buildProvider()
-          if (!provider) {
-            res.writeHead(400, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({ error: '未配置 AI provider，请在插件配置中添加 ai.apiKey' }))
-            return
-          }
-          try {
-            const { id, mock, raw } = JSON.parse(body) as { id: string; mock: Record<string, unknown>; raw: Record<string, unknown> }
-            const schema = inferSchema(mock)
-            const result = await generateAdapter({ provider, adapterId: id, schema, raw })
-            res.writeHead(200, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify(result))
-          } catch (err) {
-            res.writeHead(500, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({ error: String(err) }))
-          }
-          return
-        }
-
-        // POST /__ai-guard/write-file → 写 adapter 文件
-        if (method === 'POST' && url === '/write-file') {
-          const body = await readBody(req)
-          try {
-            const { id, code } = JSON.parse(body) as { id: string; code: string }
-            const fileName = id.replace(/[^a-zA-Z0-9-_]/g, '-') + '.' + fileType
-            const dir = resolve(server.config.root, adaptersDir)
-            const filePath = resolve(dir, fileName)
-            if (existsSync(filePath)) {
-              res.writeHead(409, { 'Content-Type': 'application/json' })
-              res.end(JSON.stringify({ error: `文件已存在: ${filePath}，请手动处理` }))
-              return
-            }
-            mkdirSync(dir, { recursive: true })
-            writeFileSync(filePath, code, 'utf-8')
-            const relPath = adaptersDir.replace(/\\/g, '/') + '/' + fileName
-            server.config.logger.info(`[ai-request-guard] adapter written → ${relPath}`, { timestamp: true })
-            res.writeHead(200, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({ path: relPath }))
-          } catch (err) {
-            res.writeHead(500, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({ error: String(err) }))
-          }
-          return
-        }
-
-        next()
       })
 
       if (!reporting) return
+
       // ── /__ai-guard/report：接收 schema diff 上报 ──────────────────────────
       server.middlewares.use('/__ai-guard/report', async (req, res) => {
         if (req.method !== 'POST') { res.writeHead(405).end(); return }
@@ -428,10 +386,6 @@ export { flushReport }
         } catch { /* malformed — ignore */ }
         res.writeHead(204).end()
       })
-    },
-
-    buildStart() {
-      // Print GUI URL only when AI is configured (printed after server starts via configureServer hook)
     },
   }
 }

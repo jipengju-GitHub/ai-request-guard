@@ -1,7 +1,7 @@
-import { writeFileSync, existsSync, mkdirSync } from 'fs'
+import { writeFileSync } from 'fs'
 import { resolve } from 'path'
-import { inferSchema } from '../../core/src/index'
-import { generateAdapter, openaiCompatible, anthropic, buildGuiHtml } from '../../ai/src/index'
+import * as http from 'http'
+import { openaiCompatible, anthropic, startGuiServer } from '../../ai/src/index'
 import type { AIProvider, OpenAICompatibleOptions, AnthropicOptions } from '../../ai/src/types'
 
 /** Mirror of SchemaDiff from @ai-request-guard/core — kept local to avoid Node import issues */
@@ -59,6 +59,10 @@ export interface AIGuardWebpackPluginOptions {
    * @default 'ts'
    */
   fileType?: 'ts' | 'js'
+  /**
+   * GUI 管理界面端口。不填时自动取 devServer 端口 + 1（如有冲突则继续 +1 探测）。
+   */
+  guiPort?: number
 }
 
 function escHtml(str: string): string {
@@ -228,10 +232,12 @@ export class AIGuardWebpackPlugin {
   private readonly aiOpts: AIGuardAIOptions | undefined
   private readonly adaptersDir: string
   private readonly fileType: 'ts' | 'js'
+  private readonly guiPort: number | undefined
 
   private readonly records = new Map<string, SchemaDiff>()
   private readonly rawRecords = new Map<string, RawRecord>()
   private rootDir = process.cwd()
+  private guiServer: http.Server | null = null
 
   constructor(options: AIGuardWebpackPluginOptions = {}) {
     this.reporting = options.reporting ?? false
@@ -240,6 +246,7 @@ export class AIGuardWebpackPlugin {
     this.aiOpts = options.ai
     this.adaptersDir = options.adaptersDir ?? 'src/adapters'
     this.fileType = options.fileType ?? 'ts'
+    this.guiPort = options.guiPort
   }
 
   private buildProvider(): AIProvider | null {
@@ -275,131 +282,90 @@ export class AIGuardWebpackPlugin {
 
     const self = this
 
-    compiler.hooks.afterPlugins.tap('AIGuardWebpackPlugin', () => {
-      const devServerOptions = compiler.options.devServer ?? {}
+    // Register reporting middlewares on devServer (must stay on same origin for sendBeacon)
+    if (this.reporting) {
+      compiler.hooks.afterPlugins.tap('AIGuardWebpackPlugin', () => {
+        const devServerOptions = compiler.options.devServer ?? {}
 
-      // webpack-dev-server v4 / webpack 5
-      if (!devServerOptions.setupMiddlewares) {
-        devServerOptions.setupMiddlewares = (middlewares: unknown[], devServer: { app: import('http').Server }) => {
-          self._applyMiddlewares(devServer.app)
-          return middlewares
+        // webpack-dev-server v4 / webpack 5
+        if (!devServerOptions.setupMiddlewares) {
+          devServerOptions.setupMiddlewares = (middlewares: unknown[], devServer: { app: import('http').Server }) => {
+            self._applyReportingMiddlewares(devServer.app)
+            return middlewares
+          }
+        } else {
+          const orig = devServerOptions.setupMiddlewares
+          devServerOptions.setupMiddlewares = (middlewares: unknown[], devServer: { app: import('http').Server }) => {
+            self._applyReportingMiddlewares(devServer.app)
+            return orig(middlewares, devServer)
+          }
         }
-      } else {
-        const orig = devServerOptions.setupMiddlewares
-        devServerOptions.setupMiddlewares = (middlewares: unknown[], devServer: { app: import('http').Server }) => {
-          self._applyMiddlewares(devServer.app)
-          return orig(middlewares, devServer)
-        }
-      }
 
-      // webpack-dev-server v3 / Vue CLI 4 fallback
-      if (!devServerOptions.before) {
-        devServerOptions.before = (app: import('http').Server) => {
-          self._applyMiddlewares(app)
+        // webpack-dev-server v3 / Vue CLI 4 fallback
+        if (!devServerOptions.before) {
+          devServerOptions.before = (app: import('http').Server) => {
+            self._applyReportingMiddlewares(app)
+          }
+        } else {
+          const orig = devServerOptions.before
+          devServerOptions.before = (app: import('http').Server, server: unknown, compiler: unknown) => {
+            self._applyReportingMiddlewares(app)
+            orig(app, server, compiler)
+          }
         }
-      } else {
-        const orig = devServerOptions.before
-        devServerOptions.before = (app: import('http').Server, server: unknown, compiler: unknown) => {
-          self._applyMiddlewares(app)
-          orig(app, server, compiler)
-        }
-      }
 
-      compiler.options.devServer = devServerOptions
-    })
+        compiler.options.devServer = devServerOptions
+      })
+    }
 
-    // Print GUI address after compilation (server is up by then)
-    compiler.hooks.done.tap('AIGuardWebpackPlugin', () => {
-      const port = compiler.options.devServer?.port ?? 8080
+    // Start GUI server on independent port after devServer is up
+    compiler.hooks.done.tapPromise('AIGuardWebpackPlugin', async () => {
+      if (self.guiServer) return // already started
+      const devPort = compiler.options.devServer?.port ?? 8080
       const host = 'localhost'
-      console.log(`\n  \x1b[32m➜\x1b[0m  AIRequestGuard GUI:  \x1b[36mhttp://${host}:${port}/__ai-guard\x1b[0m\n`)
+      try {
+        const { server, port } = await startGuiServer({
+          devServerPort: devPort,
+          guiPort: self.guiPort,
+          aiConfigured: !!self.aiOpts,
+          adaptersDir: self.adaptersDir,
+          fileType: self.fileType,
+          rootDir: self.rootDir,
+          buildProvider: () => self.buildProvider(),
+          onLog: (msg) => console.log(msg),
+        })
+        self.guiServer = server
+        console.log(`\n  \x1b[32m➜\x1b[0m  AIRequestGuard GUI:  \x1b[36mhttp://${host}:${port}\x1b[0m\n`)
+      } catch (err) {
+        console.warn(`[ai-request-guard] GUI server failed to start: ${err}`)
+      }
     })
+
+    // webpack 5: shutdown hook
+    if (compiler.hooks.shutdown) {
+      compiler.hooks.shutdown.tap('AIGuardWebpackPlugin', () => {
+        if (self.guiServer) { self.guiServer.close(); self.guiServer = null }
+      })
+    }
   }
 
   /**
-   * 手动将 devServer 中间件注册到 express app 上。
+   * 手动将 reporting 中间件注册到 express app 上。
    * Vue CLI 4 / webpack-dev-server v3 项目请在 `devServer.before` 中调用此方法。
-   *
-   * @example
-   * // vue.config.js
-   * const plugin = new AIGuardWebpackPlugin({ reporting: true })
-   * module.exports = {
-   *   configureWebpack: { plugins: [plugin] },
-   *   devServer: {
-   *     before(app) { plugin.applyMiddlewares(app) }
-   *   }
-   * }
    */
   applyMiddlewares(app: any): void {
-    this._applyMiddlewares(app)
+    this._applyReportingMiddlewares(app)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _applyMiddlewares(app: any): void {
+  private _applyReportingMiddlewares(app: any): void {
     const self = this
 
-    // Single middleware handling all /__ai-guard* routes to avoid express prefix-stripping issues
     app.use(async (req: import('http').IncomingMessage, res: import('http').ServerResponse, next: () => void) => {
       const url = req.url ?? '/'
       const method = req.method ?? 'GET'
 
       if (!url.startsWith('/__ai-guard')) { next(); return }
-
-      // GET /__ai-guard → GUI 页面
-      if (method === 'GET' && (url === '/__ai-guard' || url === '/__ai-guard/')) {
-        const html = buildGuiHtml({ aiConfigured: !!self.aiOpts, adaptersDir: self.adaptersDir, fileType: self.fileType })
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-        res.end(html)
-        return
-      }
-
-      // POST /__ai-guard/generate
-      if (method === 'POST' && url === '/__ai-guard/generate') {
-        const body = await readBody(req)
-        const provider = self.buildProvider()
-        if (!provider) {
-          res.writeHead(400, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: '未配置 AI provider，请在插件配置中添加 ai.apiKey' }))
-          return
-        }
-        try {
-          const { id, mock, raw } = JSON.parse(body) as { id: string; mock: Record<string, unknown>; raw: Record<string, unknown> }
-          const schema = inferSchema(mock)
-          const result = await generateAdapter({ provider, adapterId: id, schema, raw })
-          res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify(result))
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: String(err) }))
-        }
-        return
-      }
-
-      // POST /__ai-guard/write-file
-      if (method === 'POST' && url === '/__ai-guard/write-file') {
-        const body = await readBody(req)
-        try {
-          const { id, code } = JSON.parse(body) as { id: string; code: string }
-          const fileName = id.replace(/[^a-zA-Z0-9-_]/g, '-') + '.' + self.fileType
-          const dir = resolve(self.rootDir, self.adaptersDir)
-          const filePath = resolve(dir, fileName)
-          if (existsSync(filePath)) {
-            res.writeHead(409, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({ error: `文件已存在: ${filePath}，请手动处理` }))
-            return
-          }
-          mkdirSync(dir, { recursive: true })
-          writeFileSync(filePath, code, 'utf-8')
-          const relPath = self.adaptersDir.replace(/\\/g, '/') + '/' + fileName
-          console.log(`[ai-request-guard] adapter written → ${relPath}`)
-          res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ path: relPath }))
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: String(err) }))
-        }
-        return
-      }
 
       if (!self.reporting) { next(); return }
 

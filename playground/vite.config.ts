@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'path'
+import vue from '@vitejs/plugin-vue'
 import { aiRequestGuardPlugin } from '../packages/vite-plugin/src/index'
 
 const mockApi: Record<string, unknown> = {
@@ -34,6 +35,7 @@ export default defineConfig(({ mode }) => ({
     __DEV__: mode !== 'production',
   },
   plugins: [
+    vue(),
     aiRequestGuardPlugin({
       ai: {
         provider: 'openai-compatible',

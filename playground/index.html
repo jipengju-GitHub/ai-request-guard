@@ -8,7 +8,6 @@
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
 
-      /* ── 主题变量 ── */
       :root {
         --bg:          #f6f8fa;
         --bg-surface:  #ffffff;
@@ -57,7 +56,6 @@
         transition: background .2s, color .2s;
       }
 
-      /* ── 顶栏 ── */
       header {
         display: flex;
         align-items: center;
@@ -76,12 +74,7 @@
         border-radius: 12px;
         padding: 2px 8px;
       }
-      .header-actions {
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
+      .header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
       header a {
         font-size: 12px;
         color: var(--text-muted);
@@ -93,13 +86,9 @@
       }
       header a:hover { color: var(--accent); border-color: var(--accent); }
 
-      /* ── 主题切换按钮 ── */
       .theme-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        width: 30px; height: 28px;
         background: transparent;
         border: 1px solid var(--border-sub);
         border-radius: 6px;
@@ -109,16 +98,10 @@
         transition: color .15s, border-color .15s, background .15s;
         line-height: 1;
       }
-      .theme-btn:hover {
-        color: var(--accent);
-        border-color: var(--accent);
-        background: var(--accent-bg);
-      }
+      .theme-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
 
-      /* ── 场景选择栏 ── */
       .scenario-bar {
         display: flex;
-        gap: 0;
         padding: 0 24px;
         border-bottom: 1px solid var(--border);
         background: var(--bg-surface);
@@ -138,7 +121,6 @@
       .scenario-tab:hover { color: var(--text); }
       .scenario-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-      /* ── 主体：左右分栏 ── */
       .main {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -187,7 +169,6 @@
 
       .panel-body { flex: 1; overflow: auto; padding: 16px; }
 
-      /* ── 输入面板内容 ── */
       .field-group { margin-bottom: 20px; }
       .field-label {
         font-size: 11px;
@@ -221,12 +202,7 @@
       }
       textarea:focus { border-color: var(--accent); }
 
-      .mode-row {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 20px;
-        align-items: center;
-      }
+      .mode-row { display: flex; gap: 8px; margin-bottom: 20px; align-items: center; }
       .mode-row label { font-size: 12px; color: var(--text-muted); }
       .mode-row select {
         background: var(--bg-tag);
@@ -240,7 +216,6 @@
         transition: background .2s, color .2s;
       }
 
-      /* ── 输出面板内容 ── */
       .output-section { margin-bottom: 20px; }
       .output-section-title {
         font-size: 11px;
@@ -266,7 +241,6 @@
       }
       .code-block.placeholder { color: var(--text-faint); }
 
-      /* ── Diff 标签 ── */
       .diff-tags { display: flex; flex-direction: column; gap: 6px; }
       .diff-tag {
         display: flex;
@@ -277,50 +251,16 @@
         font-size: 12px;
         line-height: 1.5;
       }
-      .diff-tag.missing {
-        background: rgba(240,136,62,.1);
-        border-left: 3px solid #f0883e;
-        color: #c05c00;
-      }
+      .diff-tag.missing { background: rgba(240,136,62,.1); border-left: 3px solid #f0883e; color: #c05c00; }
       [data-theme="dark"] .diff-tag.missing { color: #f0883e; }
-      .diff-tag.mismatch {
-        background: rgba(207,34,46,.1);
-        border-left: 3px solid #cf222e;
-        color: #cf222e;
-      }
-      [data-theme="dark"] .diff-tag.mismatch {
-        background: rgba(248,81,73,.1);
-        border-left-color: #f85149;
-        color: #f85149;
-      }
-      .diff-tag.extra {
-        background: rgba(101,109,118,.08);
-        border-left: 3px solid #8c959f;
-        color: #57606a;
-      }
-      [data-theme="dark"] .diff-tag.extra {
-        background: rgba(139,148,158,.08);
-        border-left-color: #484f58;
-        color: #8b949e;
-      }
-      .diff-tag.ok {
-        background: rgba(26,127,55,.1);
-        border-left: 3px solid #1a7f37;
-        color: #1a7f37;
-      }
-      [data-theme="dark"] .diff-tag.ok {
-        background: rgba(63,185,80,.1);
-        border-left-color: #3fb950;
-        color: #3fb950;
-      }
-      .diff-tag code {
-        font-family: inherit;
-        background: var(--code-bg);
-        padding: 1px 5px;
-        border-radius: 3px;
-      }
+      .diff-tag.mismatch { background: rgba(207,34,46,.1); border-left: 3px solid #cf222e; color: #cf222e; }
+      [data-theme="dark"] .diff-tag.mismatch { background: rgba(248,81,73,.1); border-left-color: #f85149; color: #f85149; }
+      .diff-tag.extra { background: rgba(101,109,118,.08); border-left: 3px solid #8c959f; color: #57606a; }
+      [data-theme="dark"] .diff-tag.extra { background: rgba(139,148,158,.08); border-left-color: #484f58; color: #8b949e; }
+      .diff-tag.ok { background: rgba(26,127,55,.1); border-left: 3px solid #1a7f37; color: #1a7f37; }
+      [data-theme="dark"] .diff-tag.ok { background: rgba(63,185,80,.1); border-left-color: #3fb950; color: #3fb950; }
+      .diff-tag code { font-family: inherit; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
 
-      /* ── 警告日志 ── */
       .warn-log { display: flex; flex-direction: column; gap: 4px; }
       .warn-item {
         font-size: 11px;
@@ -337,7 +277,6 @@
       .warn-empty { font-size: 12px; color: #1a7f37; }
       [data-theme="dark"] .warn-empty { color: #3fb950; }
 
-      /* ── 说明卡片 ── */
       .desc-card {
         background: var(--bg-surface);
         border: 1px solid var(--border-sub);
@@ -350,103 +289,11 @@
         transition: background .2s;
       }
       .desc-card strong { color: var(--text); }
-      .desc-card code {
-        font-family: 'Cascadia Code', 'Fira Code', monospace;
-        font-size: 11px;
-        background: var(--bg-tag);
-        padding: 1px 5px;
-        border-radius: 3px;
-      }
+      .desc-card code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 11px; background: var(--bg-tag); padding: 1px 5px; border-radius: 3px; }
     </style>
   </head>
   <body>
-
-    <header>
-      <img src="/logo.svg" alt="logo" style="width:28px;height:28px;flex-shrink:0;">
-      <h1>AIRequestGuard</h1>
-      <span class="badge">Playground</span>
-      <div class="header-actions">
-        <button class="theme-btn" id="theme-btn" title="切换主题">🌙</button>
-        <a href="https://guard.pennji.cn/" target="_blank">文档</a>
-      </div>
-    </header>
-
-    <div class="scenario-bar" id="scenario-bar"></div>
-
-    <div class="main">
-      <!-- 左：输入 -->
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">输入配置</span>
-          <button class="run-btn" id="run-btn">运行</button>
-        </div>
-        <div class="panel-body">
-          <div class="desc-card" id="desc-card"></div>
-
-          <div class="mode-row">
-            <label>模式</label>
-            <select id="mode-select">
-              <option value="real">real — 真实请求（使用 request 函数）</option>
-              <option value="mock">mock — 跳过请求，使用 mockData</option>
-            </select>
-          </div>
-
-          <div class="field-group">
-            <div class="field-label">原始数据 (DTO) <span class="tag">raw</span></div>
-            <textarea id="raw-input" rows="8"></textarea>
-          </div>
-
-          <div class="field-group" id="mock-group" style="display:none">
-            <div class="field-label">Mock 数据 <span class="tag">mockData</span></div>
-            <textarea id="mock-input" rows="5"></textarea>
-          </div>
-
-          <div class="field-group">
-            <div class="field-label">Schema 定义 <span class="tag">可选</span></div>
-            <textarea id="schema-input" rows="6"></textarea>
-          </div>
-        </div>
-      </div>
-
-      <!-- 右：输出 -->
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">输出结果</span>
-        </div>
-        <div class="panel-body">
-
-          <div class="output-section">
-            <div class="output-section-title">ViewModel 输出</div>
-            <div class="code-block placeholder" id="out-viewmodel">点击「运行」查看结果</div>
-          </div>
-
-          <div class="output-section">
-            <div class="output-section-title">Schema Diff</div>
-            <div class="diff-tags" id="out-diff">
-              <div class="diff-tag ok">— 尚未运行 —</div>
-            </div>
-          </div>
-
-          <div class="output-section">
-            <div class="output-section-title">SDK 警告捕获</div>
-            <div class="warn-log" id="out-warns">
-              <span class="warn-empty">无警告</span>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-
-    <script>
-      // 主题初始化（在模块加载前执行，避免闪烁）
-      ;(function () {
-        const saved = localStorage.getItem('pg-theme')
-        const theme = saved || 'light'
-        document.documentElement.setAttribute('data-theme', theme)
-        document.getElementById('theme-btn').textContent = theme === 'dark' ? '☀️' : '🌙'
-      })()
-    </script>
+    <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

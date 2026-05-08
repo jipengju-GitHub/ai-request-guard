@@ -17,3 +17,7 @@ docs/.vitepress/cache/
 # generated type roots at package root level (not src/*.d.ts)
 *.d.ts
 !packages/*/src/**/*.d.ts
+
+# auto-generated GUI HTML (rebuild with: pnpm build:ai)
+packages/ai/src/gui-html.generated.ts
+packages/ai/gui/dist/

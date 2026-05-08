@@ -1,6 +1,6 @@
 {
   "name": "@ai-request-guard/ai",
-  "version": "0.2.0-alpha.4",
+  "version": "0.2.0-alpha.5",
   "private": true,
   "description": "Internal AI generation utilities for ai-request-guard plugins (Node-only, not published)",
   "type": "module",
@@ -16,6 +16,8 @@
   "scripts": {
     "build": "rollup -c rollup.config.ts --configPlugin typescript",
     "dev": "rollup -c rollup.config.ts --configPlugin typescript --watch",
+    "gui:dev": "pnpm --filter @ai-request-guard/ai-gui dev",
+    "gui:build": "pnpm --filter @ai-request-guard/ai-gui build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

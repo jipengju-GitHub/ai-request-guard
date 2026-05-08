@@ -1,4 +1,5 @@
 packages:
   - 'packages/*'
+  - 'packages/ai/gui'
   - 'playground'
   - 'docs'

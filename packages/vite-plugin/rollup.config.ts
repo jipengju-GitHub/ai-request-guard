@@ -2,7 +2,7 @@ import typescript from '@rollup/plugin-typescript'
 import dts from 'rollup-plugin-dts'
 import { defineConfig } from 'rollup'
 
-const external = ['vite', 'fs', 'path', 'vm', '@ai-request-guard/core']
+const external = ['vite', 'fs', 'path', 'vm', 'http', 'net', '@ai-request-guard/core']
 
 export default defineConfig([
   {
