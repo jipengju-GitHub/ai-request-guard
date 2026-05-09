@@ -14,6 +14,10 @@ hero:
       link: /api/core
 
 features:
+  - icon: 🤖
+    title: AI Adapter 生成
+    details: 配置 AI provider 后，在 GUI 管理界面粘贴 mock 数据和后端原始 JSON，一键生成带置信度标注的 adapter 初稿，大幅降低接入成本。
+
   - icon: 🔄
     title: Adapter 模式
     details: 将后端 DTO 与前端 ViewModel 彻底解耦。后端字段改名、结构调整，只需更新 adapter，视图代码零修改。

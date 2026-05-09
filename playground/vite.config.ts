@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => ({
       ai: {
         provider: 'openai-compatible',
         baseURL: 'https://api.deepseek.com',
-        apiKey: process.env.DEEPSEEK_KEY ?? 'sk-e9738d4db9cb46fe80b03c201f55694b',
+        apiKey: process.env.DEEPSEEK_KEY ?? '',
         model: 'deepseek-chat',
       },
     }),

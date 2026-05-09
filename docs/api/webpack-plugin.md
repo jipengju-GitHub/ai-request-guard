@@ -192,6 +192,15 @@ AIRequestGuard.watch('/api/order/list', 'order-list')
 
 ## AIGuardWebpackPluginOptions
 
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `options.reporting` | `boolean` | `false` | 是否启用上报功能 |
+| `options.outFile` | `string` | `'ai-request-guard-report.html'` | 报告文件输出路径，相对于项目根目录 |
+| `options.methods` | `string[]` | `['GET']` | 拦截的 HTTP 方法列表 |
+| `options.ai` | `AIGuardAIOptions` | — | AI provider 配置，配置后启用 Adapter Generator GUI（仅 dev 环境） |
+| `options.fileType` | `'ts' \| 'js'` | `'ts'` | 生成文件的扩展名 |
+| `options.guiPort` | `number` | devPort + 1 | GUI 管理界面端口，默认 devServer 端口 + 1 |
+
 ```ts
 interface AIGuardWebpackPluginOptions {
   /**
@@ -214,21 +223,20 @@ interface AIGuardWebpackPluginOptions {
   methods?: string[]
 
   /**
-   * AI provider 配置，配置后启用 /__ai-guard GUI 管理界面（仅 dev 环境）。
+   * AI provider 配置，配置后启用 Adapter Generator GUI（仅 dev 环境）。
    */
   ai?: AIGuardAIOptions
-
-  /**
-   * adapter 文件输出目录，相对于项目根目录。
-   * @default 'src/adapters'
-   */
-  adaptersDir?: string
 
   /**
    * 生成文件的扩展名。
    * @default 'ts'
    */
   fileType?: 'ts' | 'js'
+
+  /**
+   * GUI 管理界面端口。不填时自动取 devServer 端口 + 1（如有冲突则继续 +1 探测）。
+   */
+  guiPort?: number
 }
 
 interface AIGuardAIOptions {
@@ -236,7 +244,7 @@ interface AIGuardAIOptions {
   provider: 'openai-compatible' | 'anthropic'
   /** openai-compatible 模式必填：API 基础地址 */
   baseURL?: string
-  /** API 密钥 */
+  /** API 密钥（仅存于 Node 层，不进浏览器） */
   apiKey: string
   /** 模型名称（openai-compatible 默认 'deepseek-chat'） */
   model?: string
@@ -247,13 +255,15 @@ interface AIGuardAIOptions {
 
 ---
 
-## Adapter Generator GUI（`/__ai-guard`）
+## Adapter Generator GUI
 
-配置 `ai` 选项后，插件在 webpack-dev-server 上自动挂载 GUI 管理页面。dev 服务启动后，终端会打印访问地址：
+配置 `ai` 选项后，插件在**独立端口**启动 GUI 管理页面（与 webpack-dev-server 同进程，不占用宿主 devServer 端口）。dev 服务启动后，终端会打印访问地址：
 
 ```
-  ➜  AIRequestGuard GUI:  http://localhost:8080/__ai-guard
+  ➜  AIRequestGuard GUI:  http://localhost:8081
 ```
+
+> 端口默认为 devServer 端口 + 1，被占用时自动 +1 探测，也可通过 `guiPort` 手动指定。
 
 ### 配置示例
 
@@ -269,12 +279,69 @@ const aiGuardPlugin = new AIGuardWebpackPlugin({
     apiKey: process.env.DEEPSEEK_KEY,
     model: 'deepseek-chat',
   },
-  adaptersDir: 'src/adapters',
   fileType: 'ts',
 })
 ```
 
-使用方式与置信度标注说明与 [vite-plugin GUI 章节](/api/vite-plugin#adapter-generator-gui-ai-guard) 完全相同。
+使用方式与置信度标注说明与 [vite-plugin GUI 章节](/api/vite-plugin#adapter-generator-gui) 完全相同。
+
+---
+
+## devServer 端点
+
+插件在两个服务上注册端点（仅开发环境）：
+
+### GET /（GUI 独立端口根路径）
+
+返回 Adapter Generator GUI 页面（HTML）。需配置 `ai` 选项；未配置时页面仍可访问但生成功能禁用。
+
+### POST /generate（GUI 独立端口）
+
+调用 AI 生成 adapter 初稿。请求体：
+
+```ts
+{ id: string; mock: Record<string, unknown>; raw: Record<string, unknown> }
+```
+
+响应体：
+
+```ts
+{ code: string; warnings: string[]; confidence: number }
+```
+
+`code` 为带置信度标注的 `AIRequestGuard.register(...)` 调用代码字符串；`warnings` 列出 schema 中未能匹配的字段；`confidence` 为 0–1 的整体置信度。
+
+### POST /infer-schema（GUI 独立端口）
+
+根据 mock 数据推导 schema 结构。请求体：
+
+```ts
+{ mock: Record<string, unknown> }
+```
+
+响应体：
+
+```ts
+{ schema: Record<string, unknown> }
+```
+
+### POST /__ai-guard/report（宿主 devServer）
+
+接收浏览器端 schema diff 上报。请求体为 `SchemaDiff[]` JSON 数组。由 `report-sink` 自动调用，无需手动操作。需启用 `reporting: true`。
+
+### POST /__ai-guard/raw（宿主 devServer）
+
+接收 fetch 拦截器上报的原始响应数据快照。请求体格式：
+
+```ts
+{
+  url: string    // 请求 URL
+  method: string // HTTP 方法
+  raw: unknown   // 响应 JSON 数据
+}
+```
+
+需启用 `reporting: true`。
 
 ## 环境兼容性
 

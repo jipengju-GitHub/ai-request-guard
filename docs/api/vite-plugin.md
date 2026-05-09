@@ -30,9 +30,9 @@ function aiRequestGuardPlugin(options?: AIGuardVitePluginOptions): Plugin
 | `options.reporting` | `boolean` | `false` | 是否启用上报功能；`false` 时虚拟模块为空操作，不会报错 |
 | `options.outFile` | `string` | `'ai-request-guard-report.html'` | 报告文件输出路径，相对于项目根目录 |
 | `options.methods` | `string[]` | `['GET']` | 拦截的 HTTP 方法列表 |
-| `options.ai` | `AIGuardAIOptions` | — | AI provider 配置，配置后启用 `/__ai-guard` GUI（仅 dev 环境） |
-| `options.adaptersDir` | `string` | `'src/adapters'` | adapter 文件输出目录，相对于项目根目录 |
+| `options.ai` | `AIGuardAIOptions` | — | AI provider 配置，配置后启用 Adapter Generator GUI（仅 dev 环境） |
 | `options.fileType` | `'ts' \| 'js'` | `'ts'` | 生成文件的扩展名 |
+| `options.guiPort` | `number` | devPort + 1 | GUI 管理界面端口，默认 devServer 端口 + 1 |
 
 **示例：**
 
@@ -97,21 +97,20 @@ interface AIGuardVitePluginOptions {
   methods?: string[]
 
   /**
-   * AI provider 配置，配置后启用 /__ai-guard GUI 管理界面（仅 dev 环境）。
+   * AI provider 配置，配置后启用 Adapter Generator GUI（仅 dev 环境）。
    */
   ai?: AIGuardAIOptions
-
-  /**
-   * adapter 文件输出目录，相对于项目根目录。
-   * @default 'src/adapters'
-   */
-  adaptersDir?: string
 
   /**
    * 生成文件的扩展名。
    * @default 'ts'
    */
   fileType?: 'ts' | 'js'
+
+  /**
+   * GUI 管理界面端口。不填时自动取 devServer 端口 + 1（如有冲突则继续 +1 探测）。
+   */
+  guiPort?: number
 }
 
 interface AIGuardAIOptions {
@@ -119,7 +118,7 @@ interface AIGuardAIOptions {
   provider: 'openai-compatible' | 'anthropic'
   /** openai-compatible 模式必填：API 基础地址 */
   baseURL?: string
-  /** API 密钥 */
+  /** API 密钥（仅存于 Node 层，不进浏览器） */
   apiKey: string
   /** 模型名称（openai-compatible 默认 'deepseek-chat'） */
   model?: string
@@ -184,22 +183,24 @@ declare module 'virtual:ai-request-guard/report-sink' {
 
 ---
 
-## Adapter Generator GUI（`/__ai-guard`）
+## Adapter Generator GUI
 
-配置 `ai` 选项后，插件在 Vite devServer 上自动挂载 GUI 管理页面。dev 服务启动后，终端会打印访问地址：
+配置 `ai` 选项后，插件在**独立端口**启动 GUI 管理页面（与 Vite devServer 同进程，不占用宿主 devServer 端口）。dev 服务启动后，终端会打印访问地址：
 
 ```
-  ➜  AIRequestGuard GUI:  http://localhost:5173/__ai-guard
+  ➜  AIRequestGuard GUI:  http://localhost:5174
 ```
+
+> 端口默认为 devServer 端口 + 1，被占用时自动 +1 探测，也可通过 `guiPort` 手动指定。
 
 ### 使用流程
 
-1. 打开 `/__ai-guard` 页面
-2. 填写 **Adapter ID**（对应最终的文件名和 register id，如 `user-detail`）
-3. 粘贴 **Mock JSON**（前端期望的数据结构）
+1. 打开终端打印的 GUI 地址
+2. 填写 **Adapter ID**（对应最终的 register id，如 `user-detail`）
+3. 粘贴 **Mock JSON**（前端期望的数据结构，即后端原始格式）
 4. 粘贴 **Raw JSON**（后端真实返回数据）
 5. 点击「生成 Adapter」，等待 AI 返回带置信度标注的 adapter 草稿
-6. 点击「复制代码」粘贴到文件，或点击「写入文件」直接写入 `adaptersDir`
+6. 点击「复制代码」粘贴到项目文件，或点击「写入文件」直接写入
 
 ### 置信度标注
 
@@ -225,7 +226,6 @@ export default defineConfig({
         apiKey: process.env.DEEPSEEK_KEY,
         model: 'deepseek-chat',
       },
-      adaptersDir: 'src/adapters',
       fileType: 'ts',
     }),
   ],
@@ -246,11 +246,11 @@ export default defineConfig({
 
 插件在 Vite devServer 上注册以下端点（仅开发环境）：
 
-### GET /__ai-guard
+### GET /（GUI 独立端口根路径）
 
-返回 Adapter Generator GUI 页面（HTML需配置 `ai` 选项；未配置时页面仍可访问但生成功能禁用。
+返回 Adapter Generator GUI 页面（HTML）。需配置 `ai` 选项；未配置时页面仍可访问但生成功能禁用。
 
-### POST /__ai-guard/generate
+### POST /generate（GUI 独立端口）
 
 调用 AI 生成 adapter 初稿。请求体：
 
@@ -261,30 +261,32 @@ export default defineConfig({
 响应体：
 
 ```ts
-{ code: string; warnings: string[] }
+{ code: string; warnings: string[]; confidence: number }
 ```
 
-`code` 为带置信度标注的 `AIRequestGuard.register(...)` 调用代码字符串，`warnings` 列出 schema 中未能匹配的字段。
+`code` 为带置信度标注的 `AIRequestGuard.register(...)` 调用代码字符串；`warnings` 列出 schema 中未能匹配的字段；`confidence` 为 0–1 的整体置信度。
 
-### POST /__ai-guard/write-file
+### POST /infer-schema（GUI 独立端口）
 
-将 adapter 代码写入 `adaptersDir` 对应文件。请求体：
+根据 mock 数据推导 schema 结构。请求体：
 
 ```ts
-{ id: string; code: string }
+{ mock: Record<string, unknown> }
 ```
 
-文件已存在时返回 `409`，提示用户手动处理。成功时返回 `{ path: string }`（相对路径）。
+响应体：
 
-### POST /__ai-guard/report
+```ts
+{ schema: Record<string, unknown> }
+```
 
-接收浏览器端 schema diff 上报。请求体为 `SchemaDiff[]` JSON 数组。
+### POST /__ai-guard/report（宿主 devServer）
 
-由虚拟模块自动调用，无需手动操作。
+接收浏览器端 schema diff 上报。请求体为 `SchemaDiff[]` JSON 数组。由虚拟模块自动调用，无需手动操作。需启用 `reporting: true`。
 
-### POST /__ai-guard/raw
+### POST /__ai-guard/raw（宿主 devServer）
 
-接收 fetch 拦截器上报的原始响应数据快照请求体格式：
+接收 fetch 拦截器上报的原始响应数据快照。请求体格式：
 
 ```ts
 {
@@ -294,7 +296,7 @@ export default defineConfig({
 }
 ```
 
-Node 端通过 `findIdByUrl()` 将 URL 匹配到 adapter id，记录原始字段列表（`Object.keys(raw)`）并重新生成报告。
+需启用 `reporting: true`。
 
 ---
 

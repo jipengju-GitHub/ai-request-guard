@@ -235,6 +235,12 @@ AIRequestGuard.watch('/api/user/detail', 'user-detail')
 
 触发一次真实 GET 请求后，项目根目录会生成 `ai-request-guard-report.html`，双击浏览器打开即可查看差异报告。
 
+## AI 生成 Adapter
+
+手写 adapter 有一定学习成本，尤其在字段较多、命名差异大时。**Adapter Generator GUI**：配置 AI provider 后，在 GUI 页面粘贴 mock 数据和后端原始数据，即可自动生成带置信度标注的 adapter 初稿。
+
+详见 [AI Adapter 生成指南](/guide/ai-adapter)。
+
 ## 全局配置
 
 ::: code-group

@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.2.0-alpha.x
+## 1.0.0
 
-> 首个 Alpha 版本，引入 V2 AI 能力。功能已完整实现，文档完善后将正式发布 0.2.0。
+> 引入 AI 能力。
 
 ### 新增
 
@@ -13,7 +13,6 @@
 **`@ai-request-guard/vite-plugin` / `@ai-request-guard/webpack-plugin`**
 
 - 新增 `ai` 配置项：接入 AI provider，启用 Adapter Generator GUI
-- 新增 `adaptersDir` 配置项：adapter 文件输出目录，默认 `src/adapters`
 - 新增 `fileType` 配置项：生成文件扩展名，`'ts'`（默认）或 `'js'`
 - 新增 `/__ai-guard` GUI 管理页面：dev 启动后自动在终端打印访问地址
   - 填写 Adapter ID + Mock JSON + Raw JSON，一键生成 adapter 初稿

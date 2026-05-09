@@ -34,6 +34,7 @@ export default defineConfig({
           items: [
             { text: '安装与配置', link: '/guide/getting-started' },
             { text: '编写 Adapter', link: '/guide/adapter' },
+            { text: 'AI Adapter 生成', link: '/guide/ai-adapter' },
             { text: 'Mock 系统', link: '/guide/mock' },
             { text: 'Schema 校验', link: '/guide/schema' },
             { text: '真实请求拦截', link: '/guide/interceptor' },
