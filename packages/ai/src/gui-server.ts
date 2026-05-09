@@ -2,7 +2,27 @@ import * as http from 'http'
 import * as net from 'net'
 import { resolve } from 'path'
 import { writeFileSync, existsSync, mkdirSync } from 'fs'
-import { inferSchema } from '@ai-request-guard/core'
+function inferValue(val: unknown): unknown {
+  if (val === null || val === undefined) return null
+  if (Array.isArray(val)) {
+    const first = val.find((item) => item !== null && item !== undefined)
+    if (first !== undefined && typeof first === 'object') return [inferValue(first)]
+    return []
+  }
+  if (typeof val === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const key of Object.keys(val as Record<string, unknown>))
+      result[key] = inferValue((val as Record<string, unknown>)[key])
+    return result
+  }
+  if (typeof val === 'string') return ''
+  if (typeof val === 'number') return 0
+  if (typeof val === 'boolean') return false
+  return null
+}
+function inferSchema(mock: Record<string, unknown>): Record<string, unknown> {
+  return inferValue(mock) as Record<string, unknown>
+}
 import { generateAdapter } from './generate'
 import { buildGuiHtml } from './gui'
 import type { AIProvider } from './types'
