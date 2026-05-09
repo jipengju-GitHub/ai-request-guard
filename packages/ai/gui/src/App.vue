@@ -1,209 +1,176 @@
 <script setup lang="ts">
 import { inject, ref } from 'vue'
+import SchemaPanel from './components/SchemaPanel.vue'
+import AdapterPanel from './components/AdapterPanel.vue'
 
 interface GuiConfig { aiConfigured: boolean; adaptersDir: string; fileType: string }
 const config = inject<GuiConfig>('guiConfig')!
 
-const adapterId = ref('')
-const mockText = ref('')
-const rawText = ref('')
-
-const status = ref('')
-const statusType = ref<'ok' | 'err' | 'info'>('info')
-const resultVisible = ref(false)
-const codeLines = ref<{ text: string; cls: string }[]>([])
-const warnings = ref<string[]>([])
-const targetPath = ref('')
-const confirmVisible = ref(false)
-const confirmPath = ref('')
-
-let lastCode = ''
-let lastAdapterId = ''
-
-function setStatus(msg: string, type: 'ok' | 'err' | 'info') {
-  status.value = msg
-  statusType.value = type
-}
-
-function renderLines(code: string) {
-  return code.split('\n').map(line => {
-    if (line.includes('// ✅')) return { text: line, cls: 'conf-high' }
-    if (line.includes('// ❓')) return { text: line, cls: 'conf-mid' }
-    if (line.includes('// ❌')) return { text: line, cls: 'conf-low' }
-    return { text: line, cls: '' }
-  })
-}
-
-function fileName(id: string) {
-  return id.replace(/[^a-zA-Z0-9-_]/g, '-') + '.' + config.fileType
-}
-
-async function generate() {
-  if (!adapterId.value.trim()) { setStatus('请填写 Adapter ID', 'err'); return }
-  if (!mockText.value.trim()) { setStatus('请填写 Mock JSON', 'err'); return }
-  if (!rawText.value.trim()) { setStatus('请填写 Raw JSON', 'err'); return }
-
-  let mock: unknown, raw: unknown
-  try { mock = JSON.parse(mockText.value) } catch { setStatus('Mock JSON 格式错误', 'err'); return }
-  try { raw = JSON.parse(rawText.value) } catch { setStatus('Raw JSON 格式错误', 'err'); return }
-
-  setStatus('生成中...', 'info')
-
-  try {
-    const resp = await fetch('/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: adapterId.value, mock, raw }),
-    })
-    const data = await resp.json()
-    if (!resp.ok) { setStatus('生成失败：' + (data.error || resp.status), 'err'); return }
-
-    lastCode = data.code
-    lastAdapterId = adapterId.value
-    codeLines.value = renderLines(data.code)
-    warnings.value = data.warnings ?? []
-    targetPath.value = config.adaptersDir.replace(/\\/g, '/') + '/' + fileName(adapterId.value)
-    resultVisible.value = true
-    setStatus('生成完成', 'ok')
-  } catch (e: any) {
-    setStatus('请求失败：' + e.message, 'err')
-  }
-}
-
-function copyCode() {
-  if (!lastCode) return
-  navigator.clipboard.writeText(lastCode).then(() => setStatus('已复制到剪贴板', 'ok'))
-}
-
-function showConfirm() {
-  if (!lastAdapterId) return
-  confirmPath.value = config.adaptersDir.replace(/\\/g, '/') + '/' + fileName(lastAdapterId)
-  confirmVisible.value = true
-}
-
-async function confirmWrite() {
-  confirmVisible.value = false
-  setStatus('写入中...', 'info')
-  try {
-    const resp = await fetch('/write-file', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: lastAdapterId, code: lastCode }),
-    })
-    const data = await resp.json()
-    if (!resp.ok) {
-      setStatus('写入失败：' + (data.error || resp.status), 'err')
-    } else {
-      setStatus('写入成功：' + data.path, 'ok')
-    }
-  } catch {
-    setStatus('写入请求失败，请手动复制代码。', 'err')
-  }
-}
+const activeTab = ref<'schema' | 'adapter'>('schema')
 </script>
 
 <template>
-  <div class="page">
-    <h1>AIRequestGuard — Adapter Generator</h1>
-    <p class="sub">开发期 adapter 自动生成工具，生产构建时此页面不存在。</p>
-
-    <div v-if="!config.aiConfigured" class="warn-banner">
-      ⚠ 未配置 AI provider。请在插件配置中添加 <code>ai.apiKey</code> 后重启 dev 服务。
-    </div>
-
-    <div class="form-row">
-      <div class="form-group id-group">
-        <label>Adapter ID</label>
-        <input v-model="adapterId" type="text" placeholder="例如: user-detail" autocomplete="off" />
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label>Mock JSON（前端期望的数据结构）</label>
-        <textarea v-model="mockText" placeholder='{"userName":"张三","mobile":"138xxxxxxxx","age":28}' />
-      </div>
-      <div class="form-group">
-        <label>Raw JSON（后端真实返回数据）</label>
-        <textarea v-model="rawText" placeholder='{"username":"张三","phone_no":"138xxxxxxxx","age":"28"}' />
-      </div>
-    </div>
-
-    <div class="actions">
-      <button class="btn-primary" :disabled="!config.aiConfigured" @click="generate">生成 Adapter</button>
-    </div>
-
-    <div :class="['status', 'status-' + statusType]">{{ status }}</div>
-
-    <div v-if="resultVisible" class="result-section">
-      <h2>生成结果</h2>
-      <div class="result-box">
-        <pre><template v-for="(l, i) in codeLines" :key="i"><span :class="l.cls || undefined">{{ l.text }}</span>{{ '\n' }}</template></pre>
-        <ul class="warning-list">
-          <li v-for="(w, i) in warnings" :key="i">{{ w }}</li>
-        </ul>
-      </div>
-      <div class="result-actions">
-        <button class="btn-copy" @click="copyCode">复制代码</button>
-        <button class="btn-write" @click="showConfirm">写入文件</button>
-        <span class="target-path">{{ targetPath }}</span>
-      </div>
-      <div v-if="confirmVisible" class="write-confirm">
-        <span>确认写入路径：</span><strong>{{ confirmPath }}</strong>
-        <div class="write-confirm-actions">
-          <button class="btn-confirm" @click="confirmWrite">确认写入</button>
-          <button class="btn-cancel" @click="confirmVisible = false">取消</button>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <span class="brand-name">AIRequestGuard</span>
+          <span class="brand-sub">Dev Tools</span>
+        </div>
+        <div class="header-meta">
+          <span class="env-badge">dev only</span>
         </div>
       </div>
-    </div>
+      <nav class="tab-nav">
+        <button :class="['tab-btn', { active: activeTab === 'schema' }]" @click="activeTab = 'schema'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          Schema 推导
+        </button>
+        <button :class="['tab-btn', { active: activeTab === 'adapter' }]" @click="activeTab = 'adapter'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          Adapter 生成
+          <span v-if="!config.aiConfigured" class="tab-warn">需配置 AI</span>
+        </button>
+      </nav>
+    </header>
+
+    <main class="content">
+      <SchemaPanel v-if="activeTab === 'schema'" />
+      <AdapterPanel v-else :config="config" />
+    </main>
   </div>
 </template>
 
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 32px; }
-</style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-<style scoped>
-.page { max-width: 960px; margin: 0 auto; }
-h1 { color: #58a6ff; font-size: 20px; margin-bottom: 4px; }
-.sub { color: #8b949e; font-size: 12px; margin-bottom: 28px; }
-.warn-banner { background: rgba(240,136,62,.12); border: 1px solid #f0883e; border-radius: 6px; padding: 12px 16px; color: #f0883e; font-size: 13px; margin-bottom: 20px; }
-.form-row { display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start; }
-.form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
-.form-group.id-group { max-width: 280px; }
-label { font-size: 12px; color: #8b949e; }
-input, textarea { background: #161b22; border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px; padding: 8px 12px; font-size: 13px; font-family: monospace; width: 100%; outline: none; resize: vertical; }
-textarea { min-height: 140px; }
-input:focus, textarea:focus { border-color: #58a6ff; }
-.actions { display: flex; gap: 10px; margin-top: 4px; }
-button { padding: 8px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; }
-.btn-primary { background: #238636; color: #fff; }
-.btn-primary:hover:not(:disabled) { background: #2ea043; }
-.btn-primary:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
-.btn-copy { background: #1f6feb; color: #fff; }
-.btn-copy:hover { background: #388bfd; }
-.btn-write { background: #161b22; color: #58a6ff; border: 1px solid #30363d; }
-.btn-write:hover { border-color: #58a6ff; }
-.status { margin-top: 12px; font-size: 13px; min-height: 20px; }
-.status-ok { color: #3fb950; }
-.status-err { color: #f85149; }
-.status-info { color: #8b949e; }
-.result-section { margin-top: 24px; }
-.result-section h2 { font-size: 15px; color: #c9d1d9; margin-bottom: 10px; }
-.result-box { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; }
-pre { font-family: monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; color: #e6edf3; }
-.conf-high { color: #3fb950; }
-.conf-mid { color: #f0883e; }
-.conf-low { color: #f85149; }
-.warning-list { margin-top: 12px; list-style: none; display: flex; flex-direction: column; gap: 6px; }
-.warning-list li { font-size: 12px; color: #f0883e; background: rgba(240,136,62,.1); border-left: 3px solid #f0883e; padding: 5px 10px; border-radius: 3px; }
-.result-actions { display: flex; gap: 10px; margin-top: 10px; align-items: center; }
-.target-path { font-size: 12px; color: #8b949e; }
-.write-confirm { margin-top: 10px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px 16px; font-size: 13px; }
-.write-confirm span { color: #8b949e; }
-.write-confirm strong { color: #c9d1d9; }
-.write-confirm-actions { display: flex; gap: 8px; margin-top: 10px; }
-.btn-confirm { background: #b62324; color: #fff; padding: 6px 14px; border-radius: 4px; border: none; cursor: pointer; font-size: 12px; }
-.btn-cancel { background: #21262d; color: #c9d1d9; padding: 6px 14px; border-radius: 4px; border: none; cursor: pointer; font-size: 12px; }
+:root {
+  --bg:          #0c0c10;
+  --bg-surface:  #131318;
+  --bg-raised:   #1a1a22;
+  --bg-input:    #0f0f14;
+  --border:      #1e1e28;
+  --border-sub:  #252530;
+  --text:        #e8e8f0;
+  --text-muted:  #7878a0;
+  --text-faint:  #3a3a50;
+  --accent:      #7c7cff;
+  --accent-dim:  rgba(124,124,255,.12);
+  --accent-ring: rgba(124,124,255,.2);
+  --green:       #22c55e;
+  --green-dim:   rgba(34,197,94,.1);
+  --amber:       #f59e0b;
+  --amber-dim:   rgba(245,158,11,.1);
+  --red:         #f87171;
+  --red-dim:     rgba(248,113,113,.1);
+  --slate:       #94a3b8;
+  --slate-dim:   rgba(148,163,184,.07);
+  --radius:      8px;
+  --radius-lg:   12px;
+  --shadow:      0 4px 24px rgba(0,0,0,.4);
+}
+
+html, body, #app { height: 100%; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-sub); border-radius: 3px; }
+
+/* App shell */
+.app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* Header */
+.header {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px 0;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-icon {
+  width: 30px; height: 30px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(124,124,255,.25);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.brand-name { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -.2px; }
+.brand-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-sub);
+  border-radius: 20px;
+  padding: 2px 8px;
+}
+.env-badge {
+  font-size: 10px;
+  color: var(--amber);
+  background: var(--amber-dim);
+  border: 1px solid rgba(245,158,11,.2);
+  border-radius: 20px;
+  padding: 2px 9px;
+  font-weight: 500;
+}
+.header-meta { display: flex; align-items: center; }
+
+/* Tab nav */
+.tab-nav {
+  display: flex;
+  padding: 0 28px;
+  gap: 4px;
+  margin-top: 10px;
+}
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s;
+  margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-warn {
+  font-size: 10px;
+  color: var(--amber);
+  background: var(--amber-dim);
+  border: 1px solid rgba(245,158,11,.2);
+  border-radius: 20px;
+  padding: 1px 7px;
+  font-weight: 500;
+}
+
+/* Content */
+.content { flex: 1; overflow: auto; padding: 28px; max-width: 1100px; width: 100%; margin: 0 auto; }
 </style>

@@ -36,26 +36,26 @@ function run() {
       <div class="desc-card" v-html="scenario.desc" />
 
       <div class="mode-row">
-        <label>模式</label>
-        <select v-model="mode">
-          <option value="real">real — 真实请求（使用 request 函数）</option>
-          <option value="mock">mock — 跳过请求，使用 mockData</option>
-        </select>
+        <span class="mode-label">模式</span>
+        <div class="seg-ctrl">
+          <button :class="['seg-opt', { active: mode === 'real' }]" @click="mode = 'real'">real</button>
+          <button :class="['seg-opt', { active: mode === 'mock' }]" @click="mode = 'mock'">mock</button>
+        </div>
       </div>
 
       <div class="field-group">
         <div class="field-label">原始数据 (DTO) <span class="tag">raw</span></div>
-        <textarea v-model="rawText" rows="8" />
+        <textarea v-model="rawText" rows="8" spellcheck="false" />
       </div>
 
       <div class="field-group" v-if="mode === 'mock'">
         <div class="field-label">Mock 数据 <span class="tag">mockData</span></div>
-        <textarea v-model="mockText" rows="5" />
+        <textarea v-model="mockText" rows="5" spellcheck="false" />
       </div>
 
       <div class="field-group">
         <div class="field-label">Schema 定义 <span class="tag">可选</span></div>
-        <textarea v-model="schemaText" rows="6" />
+        <textarea v-model="schemaText" rows="6" spellcheck="false" />
       </div>
     </div>
   </div>

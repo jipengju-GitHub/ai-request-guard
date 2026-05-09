@@ -2,7 +2,7 @@ import * as http from 'http'
 import * as net from 'net'
 import { resolve } from 'path'
 import { writeFileSync, existsSync, mkdirSync } from 'fs'
-import { inferSchema } from '../../core/src/index'
+import { inferSchema } from '@ai-request-guard/core'
 import { generateAdapter } from './generate'
 import { buildGuiHtml } from './gui'
 import type { AIProvider } from './types'
@@ -58,6 +58,19 @@ export function createGuiServer(opts: GuiServerOptions): http.Server {
       const html = buildGuiHtml({ aiConfigured: opts.aiConfigured, adaptersDir: opts.adaptersDir, fileType: opts.fileType })
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
       res.end(html)
+      return
+    }
+
+    // POST /infer-schema → 本地推导 schema，无需 AI
+    if (method === 'POST' && url === '/infer-schema') {
+      const body = await readBody(req)
+      try {
+        const { mock } = JSON.parse(body) as { mock: Record<string, unknown> }
+        const schema = inferSchema(mock)
+        json(res, 200, { schema })
+      } catch (err) {
+        json(res, 500, { error: String(err) })
+      }
       return
     }
 
