@@ -1,6 +1,6 @@
 {
   "name": "@ai-request-guard/vite-plugin",
-  "version": "0.2.0-alpha.8",
+  "version": "0.2.0-alpha.9",
   "description": "Vite plugin for AIRequestGuard — real-request interception and schema diff HTML report",
   "keywords": [
     "vite-plugin",

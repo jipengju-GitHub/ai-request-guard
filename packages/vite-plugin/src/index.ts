@@ -55,11 +55,6 @@ export interface AIGuardVitePluginOptions {
    */
   ai?: AIGuardAIOptions
   /**
-   * adapter 文件输出目录，相对于项目根目录。
-   * @default 'src/adapters'
-   */
-  adaptersDir?: string
-  /**
    * 生成文件的扩展名。
    * @default 'ts'
    */
@@ -207,7 +202,6 @@ export function aiRequestGuardPlugin(options: AIGuardVitePluginOptions = {}): Pl
   const reporting = options.reporting ?? false
   const outFile = options.outFile ?? 'ai-request-guard-report.html'
   const allowedMethods = (options.methods ?? ['GET']).map((m) => m.toUpperCase())
-  const adaptersDir = options.adaptersDir ?? 'src/adapters'
   const fileType = options.fileType ?? 'ts'
   const aiOpts = options.ai
 
@@ -324,7 +318,6 @@ export { flushReport }
             devServerPort,
             guiPort: options.guiPort,
             aiConfigured: !!aiOpts,
-            adaptersDir,
             fileType,
             rootDir,
             buildProvider,

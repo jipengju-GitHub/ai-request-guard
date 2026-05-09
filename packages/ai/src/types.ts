@@ -32,4 +32,6 @@ export interface GenerateResult {
   code: string
   /** validation warnings if any fields were missing from output */
   warnings: string[]
+  /** 0–1 confidence score derived from annotation markers in generated code */
+  confidence: number
 }

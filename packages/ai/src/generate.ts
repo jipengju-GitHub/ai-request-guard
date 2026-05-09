@@ -4,13 +4,21 @@ import { SYSTEM_PROMPT, buildUserPrompt } from './prompt'
 
 /**
  * Extract the adapter function source from AI response.
- * Handles markdown code blocks and bare code.
+ * Handles markdown code blocks, bare code, and `const adapter = ...` assignment form.
+ * Always returns a plain function expression (no assignment prefix).
  */
 function extractCode(raw: string): string {
   // Strip markdown fences
-  const fenceMatch = raw.match(/```(?:typescript|ts|javascript|js)?\s*\n([\s\S]*?)```/)
-  if (fenceMatch) return fenceMatch[1].trim()
-  return raw.trim()
+  let code = raw.trim()
+  const fenceMatch = code.match(/```(?:typescript|ts|javascript|js)?\s*\n([\s\S]*?)```/)
+  if (fenceMatch) code = fenceMatch[1].trim()
+
+  // Strip leading `const adapter = ` (AI often outputs assignment form)
+  code = code.replace(/^(?:const|let|var)\s+\w+\s*=\s*/, '').trim()
+  // Strip trailing semicolon
+  if (code.endsWith(';')) code = code.slice(0, -1).trim()
+
+  return code
 }
 
 /**
@@ -74,8 +82,22 @@ export async function generateAdapter(opts: GenerateOptions): Promise<GenerateRe
 
   // Wrap into a register-ready snippet for display
   const snippet = buildSnippet(adapterId, code)
+  const confidence = calcConfidence(code, schemaKeys, warnings)
 
-  return { code: snippet, warnings }
+  return { code: snippet, warnings, confidence }
+}
+
+function calcConfidence(code: string, schemaKeys: string[], warnings: string[]): number {
+  const high = (code.match(/✅/g) ?? []).length
+  const mid  = (code.match(/❓/g) ?? []).length
+  const low  = (code.match(/❌/g) ?? []).length
+  const total = high + mid + low
+  if (total > 0) {
+    return Math.round(((high * 1.0 + mid * 0.5 + low * 0.0) / total) * 100) / 100
+  }
+  // Fallback: warnings deduct from perfect score
+  const deduction = schemaKeys.length > 0 ? warnings.length / schemaKeys.length : 0
+  return Math.max(0, Math.round((1 - deduction) * 100) / 100)
 }
 
 function buildSnippet(adapterId: string, adapterBody: string): string {

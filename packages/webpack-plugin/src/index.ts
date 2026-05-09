@@ -50,11 +50,6 @@ export interface AIGuardWebpackPluginOptions {
    */
   ai?: AIGuardAIOptions
   /**
-   * adapter 文件输出目录，相对于项目根目录。
-   * @default 'src/adapters'
-   */
-  adaptersDir?: string
-  /**
    * 生成文件的扩展名。
    * @default 'ts'
    */
@@ -230,7 +225,6 @@ export class AIGuardWebpackPlugin {
   private readonly outFile: string
   private readonly allowedMethods: string[]
   private readonly aiOpts: AIGuardAIOptions | undefined
-  private readonly adaptersDir: string
   private readonly fileType: 'ts' | 'js'
   private readonly guiPort: number | undefined
 
@@ -244,7 +238,6 @@ export class AIGuardWebpackPlugin {
     this.outFile = options.outFile ?? 'ai-request-guard-report.html'
     this.allowedMethods = (options.methods ?? ['GET']).map((m) => m.toUpperCase())
     this.aiOpts = options.ai
-    this.adaptersDir = options.adaptersDir ?? 'src/adapters'
     this.fileType = options.fileType ?? 'ts'
     this.guiPort = options.guiPort
   }
@@ -328,7 +321,6 @@ export class AIGuardWebpackPlugin {
           devServerPort: devPort,
           guiPort: self.guiPort,
           aiConfigured: !!self.aiOpts,
-          adaptersDir: self.adaptersDir,
           fileType: self.fileType,
           rootDir: self.rootDir,
           buildProvider: () => self.buildProvider(),
