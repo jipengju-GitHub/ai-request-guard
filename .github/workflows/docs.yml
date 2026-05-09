@@ -36,7 +36,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages
-        run: pnpm --filter @ai-request-guard/core build && pnpm --filter @ai-request-guard/vite-plugin build
+        run: |
+          pnpm --filter @ai-request-guard/ai-gui build
+          pnpm --filter @ai-request-guard/ai build
+          pnpm --filter @ai-request-guard/core build
+          pnpm --filter @ai-request-guard/vite-plugin build
 
       - name: Build playground
         run: pnpm --filter playground build
