@@ -2,7 +2,7 @@ import typescript from '@rollup/plugin-typescript'
 import dts from 'rollup-plugin-dts'
 import { defineConfig } from 'rollup'
 
-const external = ['vm', 'node:vm', 'http', 'net', 'fs', 'path']
+const external = ['vm', 'node:vm', 'http', 'https', 'net', 'fs', 'path']
 
 export default defineConfig([
   {

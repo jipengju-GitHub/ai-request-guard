@@ -1,7 +1,9 @@
 import * as http from 'http'
 import * as net from 'net'
-import { resolve } from 'path'
-import { writeFileSync, existsSync, mkdirSync } from 'fs'
+import { generateAdapter } from './generate'
+import { buildGuiHtml } from './gui'
+import type { AIProvider } from './types'
+
 function inferValue(val: unknown): unknown {
   if (val === null || val === undefined) return null
   if (Array.isArray(val)) {
@@ -23,24 +25,19 @@ function inferValue(val: unknown): unknown {
 function inferSchema(mock: Record<string, unknown>): Record<string, unknown> {
   return inferValue(mock) as Record<string, unknown>
 }
-import { generateAdapter } from './generate'
-import { buildGuiHtml } from './gui'
-import type { AIProvider } from './types'
 
 export interface GuiServerOptions {
-  /** devServer 端口，GUI 默认从 devServerPort + 1 开始探测 */
   devServerPort: number
-  /** 手动指定 GUI 端口，跳过自动探测 */
   guiPort?: number
   aiConfigured: boolean
-  adaptersDir: string
-  fileType: 'ts' | 'js'
-  rootDir: string
+  /** @deprecated 写入文件功能已移除，无需配置 */
+  adaptersDir?: string
+  fileType?: 'ts' | 'js'
+  rootDir?: string
   buildProvider: () => AIProvider | null
   onLog: (msg: string) => void
 }
 
-/** 探测从 startPort 开始第一个可用端口（最多尝试 10 个） */
 function findFreePort(startPort: number): Promise<number> {
   return new Promise((resolve, reject) => {
     let port = startPort
@@ -73,15 +70,13 @@ export function createGuiServer(opts: GuiServerOptions): http.Server {
     const url = req.url ?? '/'
     const method = req.method ?? 'GET'
 
-    // GET / → GUI 页面
     if (method === 'GET' && (url === '/' || url === '')) {
-      const html = buildGuiHtml({ aiConfigured: opts.aiConfigured, adaptersDir: opts.adaptersDir, fileType: opts.fileType })
+      const html = buildGuiHtml({ aiConfigured: opts.aiConfigured, fileType: opts.fileType })
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
       res.end(html)
       return
     }
 
-    // POST /infer-schema → 本地推导 schema，无需 AI
     if (method === 'POST' && url === '/infer-schema') {
       const body = await readBody(req)
       try {
@@ -94,7 +89,6 @@ export function createGuiServer(opts: GuiServerOptions): http.Server {
       return
     }
 
-    // POST /generate → 调 AI 生成 adapter
     if (method === 'POST' && url === '/generate') {
       const body = await readBody(req)
       const provider = opts.buildProvider()
@@ -107,29 +101,6 @@ export function createGuiServer(opts: GuiServerOptions): http.Server {
         const schema = inferSchema(mock)
         const result = await generateAdapter({ provider, adapterId: id, schema, raw })
         json(res, 200, result)
-      } catch (err) {
-        json(res, 500, { error: String(err) })
-      }
-      return
-    }
-
-    // POST /write-file → 写 adapter 文件
-    if (method === 'POST' && url === '/write-file') {
-      const body = await readBody(req)
-      try {
-        const { id, code } = JSON.parse(body) as { id: string; code: string }
-        const fileName = id.replace(/[^a-zA-Z0-9-_]/g, '-') + '.' + opts.fileType
-        const dir = resolve(opts.rootDir, opts.adaptersDir)
-        const filePath = resolve(dir, fileName)
-        if (existsSync(filePath)) {
-          json(res, 409, { error: `文件已存在: ${filePath}，请手动处理` })
-          return
-        }
-        mkdirSync(dir, { recursive: true })
-        writeFileSync(filePath, code, 'utf-8')
-        const relPath = opts.adaptersDir.replace(/\\/g, '/') + '/' + fileName
-        opts.onLog(`[ai-request-guard] adapter written → ${relPath}`)
-        json(res, 200, { path: relPath })
       } catch (err) {
         json(res, 500, { error: String(err) })
       }

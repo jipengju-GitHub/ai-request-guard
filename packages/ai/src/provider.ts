@@ -1,4 +1,36 @@
+import * as https from 'https'
+import * as http from 'http'
 import type { AIProvider, OpenAICompatibleOptions, AnthropicOptions } from './types'
+
+function nodeRequest(url: string, headers: Record<string, string>, body: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url)
+    const mod = parsed.protocol === 'https:' ? https : http
+    const req = mod.request(
+      {
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+        path: parsed.pathname + parsed.search,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...headers },
+      },
+      (res) => {
+        let data = ''
+        res.on('data', (chunk: Buffer) => { data += chunk.toString() })
+        res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`HTTP ${res.statusCode}: ${data}`))
+          } else {
+            resolve(data)
+          }
+        })
+      }
+    )
+    req.on('error', reject)
+    req.write(body)
+    req.end()
+  })
+}
 
 /** OpenAI-compatible provider (DeepSeek, Qwen, most domestic models) */
 export function openaiCompatible(opts: OpenAICompatibleOptions): AIProvider {
@@ -11,19 +43,8 @@ export function openaiCompatible(opts: OpenAICompatibleOptions): AIProvider {
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
       })
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body,
-      })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        throw new Error(`AI provider error ${res.status}: ${text}`)
-      }
-      const json = (await res.json()) as { choices: Array<{ message: { content: string } }> }
+      const data = await nodeRequest(url, { Authorization: `Bearer ${apiKey}` }, body)
+      const json = JSON.parse(data) as { choices: Array<{ message: { content: string } }> }
       const content = json?.choices?.[0]?.message?.content
       if (typeof content !== 'string') throw new Error('Unexpected response shape from OpenAI-compatible provider')
       return content
@@ -41,20 +62,12 @@ export function anthropic(opts: AnthropicOptions): AIProvider {
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
       })
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body,
-      })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        throw new Error(`Anthropic API error ${res.status}: ${text}`)
-      }
-      const json = (await res.json()) as { content: Array<{ text: string }> }
+      const data = await nodeRequest(
+        'https://api.anthropic.com/v1/messages',
+        { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body
+      )
+      const json = JSON.parse(data) as { content: Array<{ text: string }> }
       const text = json?.content?.[0]?.text
       if (typeof text !== 'string') throw new Error('Unexpected response shape from Anthropic provider')
       return text

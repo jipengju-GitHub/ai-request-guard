@@ -3,7 +3,7 @@ import { inject, ref } from 'vue'
 import SchemaPanel from './components/SchemaPanel.vue'
 import AdapterPanel from './components/AdapterPanel.vue'
 
-interface GuiConfig { aiConfigured: boolean; adaptersDir: string; fileType: string }
+interface GuiConfig { aiConfigured: boolean; fileType: string }
 const config = inject<GuiConfig>('guiConfig')!
 
 const activeTab = ref<'schema' | 'adapter'>('schema')

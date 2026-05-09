@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 
 const props = defineProps<{
-  config: { aiConfigured: boolean; adaptersDir: string; fileType: string }
+  config: { aiConfigured: boolean; fileType: string }
 }>()
 
 const adapterId = ref('')
@@ -11,9 +11,6 @@ const rawText = ref('')
 const error = ref('')
 const loading = ref(false)
 const result = ref<{ code: string; confidence: number; notes: string } | null>(null)
-const writeState = ref<'idle' | 'confirm' | 'writing' | 'done' | 'error'>('idle')
-const writePath = ref('')
-const writeError = ref('')
 
 const confidenceColor = computed(() => {
   if (!result.value) return ''
@@ -31,24 +28,25 @@ const confidenceLabel = computed(() => {
   return '低'
 })
 
+function looseParse(text: string, label: string): unknown {
+  try { return JSON.parse(text) } catch { /* try JS literal */ }
+  try { return new Function('return (' + text + ')')() } catch {
+    error.value = label + ' 格式错误，请检查括号/引号是否匹配'
+    return undefined
+  }
+}
+
 async function generate() {
   error.value = ''
   result.value = null
-  writeState.value = 'idle'
 
   if (!adapterId.value.trim()) { error.value = '请填写 Adapter ID'; return }
-  let mock: unknown, raw: unknown
-  function looseParse(text: string, label: string): unknown {
-    try { return JSON.parse(text) } catch { /* try JS eval */ }
-    try { return new Function('return (' + text + ')')() } catch {
-      error.value = label + ' 格式错误，请检查括号/引号是否匹配'
-      return undefined
-    }
-  }
-  mock = looseParse(mockText.value, 'Mock')
+
+  const mock = looseParse(mockText.value, 'Mock')
   if (error.value) return
-  raw = looseParse(rawText.value, 'Raw')
+  const raw = looseParse(rawText.value, 'Raw')
   if (error.value) return
+
   if (typeof mock !== 'object' || mock === null || Array.isArray(mock)) { error.value = 'Mock 须为 JSON 对象'; return }
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) { error.value = 'Raw 须为 JSON 对象'; return }
 
@@ -76,26 +74,6 @@ function copyCode() {
     if (btn) { btn.textContent = '已复制'; setTimeout(() => { btn.textContent = '复制代码' }, 1800) }
   })
 }
-
-async function writeFile() {
-  if (!result.value) return
-  writeState.value = 'writing'
-  writeError.value = ''
-  try {
-    const resp = await fetch('/write-file', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: adapterId.value.trim(), code: result.value.code }),
-    })
-    const data = await resp.json()
-    if (!resp.ok) { writeState.value = 'error'; writeError.value = data.error || '写入失败'; return }
-    writePath.value = data.path
-    writeState.value = 'done'
-  } catch (e: any) {
-    writeState.value = 'error'
-    writeError.value = '请求失败：' + e.message
-  }
-}
 </script>
 
 <template>
@@ -103,7 +81,7 @@ async function writeFile() {
     <div class="page-head">
       <div>
         <h2 class="page-title">Adapter 生成</h2>
-        <p class="page-desc">填写 Mock（期望输出）和 Raw（后端原始数据），AI 自动生成映射函数。</p>
+        <p class="page-desc">填写 Mock（期望 ViewModel）和 Raw（后端原始数据），AI 自动生成映射函数，复制后粘贴到项目中。</p>
       </div>
       <div v-if="!config.aiConfigured" class="ai-warn-banner">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -111,7 +89,7 @@ async function writeFile() {
       </div>
     </div>
 
-    <!-- Row 1: ID + error -->
+    <!-- ID -->
     <div class="card id-card">
       <div class="id-row">
         <label class="id-label">Adapter ID</label>
@@ -124,7 +102,7 @@ async function writeFile() {
       </div>
     </div>
 
-    <!-- Row 2: Mock + Raw -->
+    <!-- Mock + Raw -->
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
@@ -154,7 +132,7 @@ async function writeFile() {
       </div>
     </div>
 
-    <!-- Action row -->
+    <!-- Action -->
     <div class="action-row">
       <div class="err-msg" v-if="error">{{ error }}</div>
       <div v-else class="spacer" />
@@ -178,16 +156,7 @@ async function writeFile() {
             置信度 {{ confidenceLabel }} {{ Math.round(result.confidence * 100) }}%
           </span>
         </div>
-        <div class="result-actions">
-          <button id="copy-code-btn" class="btn-ghost" @click="copyCode">复制代码</button>
-          <button
-            v-if="writeState === 'idle' || writeState === 'error'"
-            class="btn-ghost btn-write"
-            @click="writeState = 'confirm'"
-          >
-            写入文件
-          </button>
-        </div>
+        <button id="copy-code-btn" class="btn-ghost" @click="copyCode">复制代码</button>
       </div>
 
       <pre class="code-area result-code">{{ result.code }}</pre>
@@ -197,47 +166,6 @@ async function writeFile() {
         <div class="notes-row">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
           <span>{{ result.notes }}</span>
-        </div>
-      </template>
-
-      <!-- Confirm write -->
-      <template v-if="writeState === 'confirm'">
-        <div class="card-divider" />
-        <div class="confirm-row">
-          <span class="confirm-text">
-            将写入 <code>{{ config.adaptersDir }}/{{ adapterId.trim().replace(/[^a-zA-Z0-9-_]/g, '-') }}.{{ config.fileType }}</code>，确认？
-          </span>
-          <div class="confirm-btns">
-            <button class="btn-ghost" @click="writeState = 'idle'">取消</button>
-            <button class="btn-primary btn-sm" @click="writeFile">确认写入</button>
-          </div>
-        </div>
-      </template>
-
-      <!-- Writing -->
-      <template v-if="writeState === 'writing'">
-        <div class="card-divider" />
-        <div class="status-row">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-          写入中…
-        </div>
-      </template>
-
-      <!-- Done -->
-      <template v-if="writeState === 'done'">
-        <div class="card-divider" />
-        <div class="status-row success">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          已写入 <code>{{ writePath }}</code>
-        </div>
-      </template>
-
-      <!-- Write error -->
-      <template v-if="writeState === 'error'">
-        <div class="card-divider" />
-        <div class="status-row fail">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          {{ writeError }}
         </div>
       </template>
     </div>
@@ -337,7 +265,6 @@ async function writeFile() {
 
 .result-card { }
 .result-meta { display: flex; align-items: center; gap: 10px; }
-.result-actions { display: flex; align-items: center; gap: 8px; }
 
 .confidence-badge {
   font-size: 11px;
@@ -358,30 +285,6 @@ async function writeFile() {
 }
 .notes-row svg { flex-shrink: 0; margin-top: 1px; color: var(--text-faint); }
 
-.confirm-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px;
-  flex-wrap: wrap;
-}
-.confirm-text { font-size: 12px; color: var(--text-muted); }
-.confirm-text code { font-family: 'Cascadia Code', monospace; font-size: 11px; color: var(--accent); }
-.confirm-btns { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-
-.status-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.status-row.success { color: var(--green); }
-.status-row.fail { color: var(--red); }
-.status-row code { font-family: 'Cascadia Code', monospace; font-size: 11px; }
-
 .btn-primary {
   display: flex;
   align-items: center;
@@ -398,7 +301,6 @@ async function writeFile() {
   transition: opacity .15s, transform .1s;
   flex-shrink: 0;
 }
-.btn-primary.btn-sm { padding: 5px 12px; font-size: 12px; }
 .btn-primary:hover:not(:disabled) { opacity: .88; }
 .btn-primary:active:not(:disabled) { transform: translateY(1px); }
 .btn-primary:disabled { opacity: .35; cursor: not-allowed; }
@@ -415,7 +317,6 @@ async function writeFile() {
   transition: color .15s, border-color .15s;
 }
 .btn-ghost:hover { color: var(--accent); border-color: rgba(124,124,255,.4); }
-.btn-write { }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin .8s linear infinite; }
