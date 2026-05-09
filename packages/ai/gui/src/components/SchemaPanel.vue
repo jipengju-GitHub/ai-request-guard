@@ -10,7 +10,17 @@ async function infer() {
   error.value = ''
   schema.value = null
   let mock: unknown
-  try { mock = JSON.parse(mockText.value) } catch { error.value = 'Mock JSON 格式错误'; return }
+  try {
+    mock = JSON.parse(mockText.value)
+  } catch {
+    try {
+      // eslint-disable-next-line no-new-func
+      mock = new Function('return (' + mockText.value + ')')()
+    } catch {
+      error.value = 'Mock 格式错误，请检查括号/引号是否匹配'
+      return
+    }
+  }
   if (typeof mock !== 'object' || mock === null || Array.isArray(mock)) {
     error.value = 'Mock 数据须为 JSON 对象'
     return

@@ -38,8 +38,17 @@ async function generate() {
 
   if (!adapterId.value.trim()) { error.value = '请填写 Adapter ID'; return }
   let mock: unknown, raw: unknown
-  try { mock = JSON.parse(mockText.value) } catch { error.value = 'Mock JSON 格式错误'; return }
-  try { raw = JSON.parse(rawText.value) } catch { error.value = 'Raw JSON 格式错误'; return }
+  function looseParse(text: string, label: string): unknown {
+    try { return JSON.parse(text) } catch { /* try JS eval */ }
+    try { return new Function('return (' + text + ')')() } catch {
+      error.value = label + ' 格式错误，请检查括号/引号是否匹配'
+      return undefined
+    }
+  }
+  mock = looseParse(mockText.value, 'Mock')
+  if (error.value) return
+  raw = looseParse(rawText.value, 'Raw')
+  if (error.value) return
   if (typeof mock !== 'object' || mock === null || Array.isArray(mock)) { error.value = 'Mock 须为 JSON 对象'; return }
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) { error.value = 'Raw 须为 JSON 对象'; return }
 
