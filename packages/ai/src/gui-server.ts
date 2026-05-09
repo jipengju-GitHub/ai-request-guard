@@ -77,18 +77,6 @@ export function createGuiServer(opts: GuiServerOptions): http.Server {
       return
     }
 
-    if (method === 'POST' && url === '/infer-schema') {
-      const body = await readBody(req)
-      try {
-        const { mock } = JSON.parse(body) as { mock: Record<string, unknown> }
-        const schema = inferSchema(mock)
-        json(res, 200, { schema })
-      } catch (err) {
-        json(res, 500, { error: String(err) })
-      }
-      return
-    }
-
     if (method === 'POST' && url === '/generate') {
       const body = await readBody(req)
       const provider = opts.buildProvider()
@@ -114,7 +102,7 @@ export function createGuiServer(opts: GuiServerOptions): http.Server {
 }
 
 export async function startGuiServer(opts: GuiServerOptions): Promise<{ server: http.Server; port: number }> {
-  const startPort = opts.guiPort ?? opts.devServerPort + 1
+  const startPort = opts.guiPort ?? opts.devServerPort + 100
   const port = await findFreePort(startPort)
   const server = createGuiServer(opts)
   await new Promise<void>((resolve) => server.listen(port, resolve))

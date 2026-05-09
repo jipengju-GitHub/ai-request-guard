@@ -85,11 +85,52 @@ module.exports = {
 
 在浏览器打开该地址，按以下步骤操作：
 
-1. 填写 **Adapter ID**（对应最终的 `register` id，如 `user-detail`）
+1. 填写 **Adapter 函数名**（将作为生成的函数名和内部 ID，如 `getUserDetailAdapter`）
 2. 粘贴 **Mock JSON**（前端期望的数据结构，即 ViewModel 格式）
 3. 粘贴 **Raw JSON**（后端真实返回数据）
 4. 点击「生成 Adapter」，等待 AI 返回带置信度标注的 adapter 草稿
-5. 点击「复制代码」粘贴到项目文件，或点击「写入文件」直接写入
+5. 点击「复制代码」粘贴到防腐层文件，或点击「写入文件」直接写入
+
+## 生成代码格式
+
+AI 生成的代码遵循新 API 格式，可直接放入防腐层文件：
+
+```ts
+// src/adapters/userAdapter.ts
+
+export const getUserDetailAdapter = (raw) => ({
+  id: raw.user_id,           // ✅ 高置信度
+  mobile: raw.phone_no,      // ❓ 请确认：phone_no 是否对应 mobile
+  avatar: undefined,         // ❌ 未找到对应字段，请手动填写
+})
+
+AIRequestGuard.register({
+  adapter: getUserDetailAdapter,
+})
+```
+
+粘贴到文件后，按需补充 `viewSchema`：
+
+```ts
+AIRequestGuard.register({
+  viewSchema: () => ({ id: 0, mobile: '', avatar: '' }),
+  adapter: getUserDetailAdapter,
+})
+```
+
+应用层直接导入函数引用使用：
+
+```ts
+// src/services/user.ts
+import { getUserDetailAdapter } from './adapters/userAdapter'
+
+static async getUserDetail(params) {
+  return await AIRequestGuard({
+    adapter: getUserDetailAdapter,
+    request: () => POST({ url: 'user/detail' }, params),
+  })
+}
+```
 
 ## 置信度标注
 
@@ -101,19 +142,6 @@ AI 对每个字段评估置信度并添加注释：
 | `// ❓` | 语义相似但名称不同，需人工确认 | 核对后使用 |
 | `// ❌` | 未找到对应字段，已留空 | 手动填写 |
 
-示例输出：
-
-```ts
-AIRequestGuard.register('user-detail', (raw) => {
-  const r = raw as Record<string, unknown>
-  return {
-    id: r.user_id as number,           // ✅
-    mobile: r.phone_no as string,      // ❓ 请确认：phone_no 是否对应 mobile
-    // avatar: ???                     // ❌ 未找到对应字段，请手动填写
-  }
-})
-```
-
 ## inferSchema 工具函数
 
 GUI 内部使用 `inferSchema` 从 mock 数据推导 schema，你也可以在代码中直接使用：
@@ -122,13 +150,8 @@ GUI 内部使用 `inferSchema` 从 mock 数据推导 schema，你也可以在代
 import { inferSchema } from '@ai-request-guard/core'
 
 const mock = { userName: '张三', mobile: '13800138000', age: 28 }
-
-const user = await AIRequestGuard({
-  id: 'user-detail',
-  request: () => fetch('/api/user').then(r => r.json()),
-  mockData: mock,
-  schema: inferSchema(mock), // 替代手写 schema
-})
+const schema = inferSchema(mock)
+// => { userName: '', mobile: '', age: 0 }
 ```
 
 ### mockjs 兼容
@@ -139,9 +162,13 @@ const user = await AIRequestGuard({
 import Mock from 'mockjs'
 import { inferSchema } from '@ai-request-guard/core'
 
-const mock = Mock.mock({ 'id|1-100': 1, userName: '@cname' })
 // 传执行结果，不传模板
-schema: inferSchema(mock)
+const mock = Mock.mock({ 'id|1-100': 1, userName: '@cname' })
+
+AIRequestGuard.register({
+  viewSchema: () => Mock.mock({ 'id|1-100': 1, userName: '@cname' }),
+  adapter: getUserDetailAdapter,
+})
 ```
 
 ## 未配置 AI 时的降级

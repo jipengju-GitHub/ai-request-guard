@@ -1,5 +1,63 @@
 # Changelog
 
+## 1.0.1
+
+> API 重构：以函数引用替代字符串 ID，防腐层单一职责，支持 IDE 跳转。
+
+### Breaking Changes
+
+**`@ai-request-guard/core`**
+
+- `AIRequestGuard.register(id, fn)` → `AIRequestGuard.register({ adapter, viewSchema? })`
+  - id 由内部自动取 `adapter.name`（函数名），用户不再感知
+  - `viewSchema` 替代原 `mockData`，在注册时传入，mock 模式和 diff 校验共用同一份数据
+- `AIRequestGuard({ id, request, schema?, mockData? })` → `AIRequestGuard({ adapter, request, mode? })`
+  - `id` 字段移除，改传 adapter 函数引用，支持 IDE Cmd/Ctrl+Click 跳转
+  - `schema` 字段移除，由 `viewSchema` 内部自动推导
+  - `mockData` 字段移除，迁移至 `register` 的 `viewSchema`
+- `AIRequestGuard.watch(pattern, id)` → `AIRequestGuard.watch(pattern, adapter)`
+  - 第二个参数由字符串 id 改为函数引用
+
+### 内部实现
+
+- 注册表由 `Map<string, Entry>` 改为 `WeakMap<AdapterFn, Entry>`，以函数引用为 key
+- `provider.ts` 底层网络请求由 Node `http`/`https` 模块改为全局 `fetch`（Node 18+）
+
+### 迁移指南
+
+**旧写法：**
+
+```ts
+// 注册
+AIRequestGuard.register('user-detail', (raw) => ({ ... }))
+
+// 调用
+AIRequestGuard({ id: 'user-detail', request, schema, mockData })
+
+// watch
+AIRequestGuard.watch('/api/user', 'user-detail')
+```
+
+**新写法：**
+
+```ts
+// 防腐层文件：定义函数 + 注册
+export const getUserDetailAdapter = (raw) => ({ ... })
+
+AIRequestGuard.register({
+  viewSchema: () => ({ id: 0, userName: '' }),
+  adapter: getUserDetailAdapter,
+})
+
+// 应用层：传函数引用
+AIRequestGuard({ adapter: getUserDetailAdapter, request })
+
+// watch
+AIRequestGuard.watch('/api/user', getUserDetailAdapter)
+```
+
+---
+
 ## 1.0.0
 
 > 引入 AI 能力。

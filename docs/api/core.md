@@ -12,29 +12,29 @@ function AIRequestGuard<T = unknown>(options: GuardOptions<T>): Promise<T>
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `options.id` | `string` | ✅ | 接口唯一 ID，用于关联已注册的 adapter |
+| `options.adapter` | `AdapterFn<T>` | ✅ | 已通过 `AIRequestGuard.register()` 注册的 adapter 函数引用 |
 | `options.request` | `() => Promise<unknown>` | ✅ | 发起真实请求的函数，mock 模式下不会被调用 |
-| `options.schema` | `Schema` | — | 期望的 ViewModel 结构，dev 模式下用于 diff 校验 |
 | `options.mode` | `'real' \| 'mock'` | — | 单接口模式，优先级高于全局 mode |
-| `options.mockData` | `unknown \| (id: string) => unknown` | — | mock 模式下的本地数据，会经过 adapter 转换 |
 
 **示例：**
 
 ::: code-group
 
 ```js [JS]
+import { getUserDetailAdapter } from './adapters/userAdapter'
+
 const user = await AIRequestGuard({
-  id: 'user-detail',
+  adapter: getUserDetailAdapter,
   request: () => fetch('/api/user/detail').then(r => r.json()),
-  schema: { id: 0, userName: '', mobile: '' },
 })
 ```
 
 ```ts [TS]
+import { getUserDetailAdapter } from './adapters/userAdapter'
+
 const user = await AIRequestGuard({
-  id: 'user-detail',
+  adapter: getUserDetailAdapter,
   request: () => fetch('/api/user/detail').then(r => r.json()),
-  schema: { id: 0, userName: '', mobile: '' },
 })
 ```
 
@@ -44,46 +44,76 @@ const user = await AIRequestGuard({
 
 ## AIRequestGuard.register()
 
-注册 adapter。adapter 是一个纯函数，将后端 DTO 映射为前端 ViewModel。
+注册 adapter。adapter 是一个纯函数，将后端 DTO 映射为前端 ViewModel。函数名自动作为内部 ID。
 
 ```ts
-AIRequestGuard.register<T>(id: string, fn: AdapterFn<T>): void
+AIRequestGuard.register<T>(options: RegisterOptions<T>): void
 ```
 
-**参数：**
+**参数（RegisterOptions）：**
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `id` | `string` | 接口唯一 ID |
-| `fn` | `(raw: unknown) => T` | 转换函数 |
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `adapter` | `(raw: unknown) => T` | ✅ | 转换函数，函数名自动作为内部 ID |
+| `viewSchema` | `unknown \| (() => unknown)` | — | 前端视图层期望的数据结构，支持静态值或工厂函数 |
+
+`viewSchema` 用途：
+- **mock 模式**：作为返回数据经 adapter 转换后返回
+- **dev 模式**：内部自动推导 schema，对 adapter 输出做 diff 校验
+- **未传**：跳过 diff 校验，报告标记"未配置 viewSchema"
 
 **示例：**
 
 ::: code-group
 
 ```js [JS]
-AIRequestGuard.register('user-detail', (raw) => {
-  return {
-    id: raw.user_id,
-    userName: raw.username ?? '',
-  }
+// src/adapters/userAdapter.js
+export const getUserDetailAdapter = (raw) => ({
+  id: raw.user_id,
+  userName: raw.username ?? '',
+  mobile: raw.phone_no ?? '',
+})
+
+AIRequestGuard.register({
+  viewSchema: () => ({ id: 0, userName: '', mobile: '' }),
+  adapter: getUserDetailAdapter,
 })
 ```
 
 ```ts [TS]
-AIRequestGuard.register('user-detail', (raw) => {
+// src/adapters/userAdapter.ts
+export const getUserDetailAdapter = (raw: unknown) => {
   const r = raw as Record<string, unknown>
   return {
     id: r.user_id as number,
     userName: (r.username as string) ?? '',
+    mobile: (r.phone_no as string) ?? '',
   }
+}
+
+AIRequestGuard.register({
+  viewSchema: () => ({ id: 0, userName: '', mobile: '' }),
+  adapter: getUserDetailAdapter,
 })
 ```
 
 :::
 
+::: tip mockjs 兼容
+`viewSchema` 支持工厂函数，兼容 mockjs：
+
+```ts
+import Mock from 'mockjs'
+
+AIRequestGuard.register({
+  viewSchema: () => Mock.mock({ 'id|1-100': 1, userName: '@cname' }),
+  adapter: getUserDetailAdapter,
+})
+```
+:::
+
 ::: tip
-建议在应用初始化时集中注册所有 adapter，与 API 请求函数放在同一模块。
+建议将 adapter 函数和 `register` 调用集中在防腐层文件（如 `src/adapters/`）中维护，应用层只传入函数引用。
 :::
 
 ---
@@ -105,17 +135,9 @@ AIRequestGuard.configure(config: GuardConfig): void
 
 **示例：**
 
-::: code-group
-
-```js [JS]
+```js
 AIRequestGuard.configure({ dev: true, mode: 'mock' })
 ```
-
-```ts [TS]
-AIRequestGuard.configure({ dev: true, mode: 'mock' })
-```
-
-:::
 
 ---
 
@@ -129,19 +151,10 @@ AIRequestGuard.setMode(mode: 'real' | 'mock'): void
 
 **示例：**
 
-::: code-group
-
-```js [JS]
+```js
 AIRequestGuard.setMode('mock') // 全局使用 mock
 AIRequestGuard.setMode('real') // 恢复真实请求
 ```
-
-```ts [TS]
-AIRequestGuard.setMode('mock') // 全局使用 mock
-AIRequestGuard.setMode('real') // 恢复真实请求
-```
-
-:::
 
 ---
 
@@ -150,7 +163,7 @@ AIRequestGuard.setMode('real') // 恢复真实请求
 注册真实请求拦截规则（仅 dev 构建生效）。当 fetch 发出的请求 URL 匹配 `pattern` 时，响应 raw data 会自动上报给 devServer。
 
 ```ts
-AIRequestGuard.watch(pattern: string | RegExp, id: string): void
+AIRequestGuard.watch(pattern: string | RegExp, adapter: AdapterFn): void
 ```
 
 **参数：**
@@ -158,23 +171,16 @@ AIRequestGuard.watch(pattern: string | RegExp, id: string): void
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `pattern` | `string \| RegExp` | URL 匹配规则：字符串为包含匹配，正则为完整匹配 |
-| `id` | `string` | 对应的 adapter id，需已通过 `register()` 注册 |
+| `adapter` | `AdapterFn` | 对应的 adapter 函数引用，需已通过 `register()` 注册 |
 
 **示例：**
 
-::: code-group
+```js
+import { getUserDetailAdapter } from './adapters/userAdapter'
 
-```js [JS]
-AIRequestGuard.watch('/api/user/detail', 'user-detail')
-AIRequestGuard.watch(/\/api\/order\/\d+/, 'order-detail')
+AIRequestGuard.watch('/api/user/detail', getUserDetailAdapter)
+AIRequestGuard.watch(/\/api\/order\/\d+/, getOrderDetailAdapter)
 ```
-
-```ts [TS]
-AIRequestGuard.watch('/api/user/detail', 'user-detail')
-AIRequestGuard.watch(/\/api\/order\/\d+/, 'order-detail')
-```
-
-:::
 
 ---
 
@@ -190,7 +196,7 @@ AIRequestGuard.clearWatch(): void
 
 ## inferSchema()
 
-从 mock 数据对象推导 schema，用于替代手写 schema。
+从 mock 数据对象推导 schema，内部由 `register` 自动调用，也可在代码中直接使用。
 
 ```ts
 function inferSchema(mockData: Record<string, unknown>): Schema
@@ -200,51 +206,13 @@ function inferSchema(mockData: Record<string, unknown>): Schema
 
 **示例：**
 
-::: code-group
-
-```js [JS]
-import { inferSchema } from '@ai-request-guard/core'
-
-const mock = { userName: '张三', mobile: '13800138000', age: 28, active: true }
-const schema = inferSchema(mock)
-// => { userName: '', mobile: '', age: 0, active: false }
-
-const user = await AIRequestGuard({
-  id: 'user-detail',
-  request: () => fetch('/api/user').then(r => r.json()),
-  mockData: mock,
-  schema: inferSchema(mock),  // 替代手写 schema
-})
-```
-
-```ts [TS]
-import { inferSchema } from '@ai-request-guard/core'
-
-const mock = { userName: '张三', mobile: '13800138000', age: 28, active: true }
-const schema = inferSchema(mock)
-// => { userName: '', mobile: '', age: 0, active: false }
-
-const user = await AIRequestGuard({
-  id: 'user-detail',
-  request: () => fetch('/api/user').then(r => r.json()),
-  mockData: mock,
-  schema: inferSchema(mock),  // 替代手写 schema
-})
-```
-
-:::
-
-::: tip 使用 mockjs 的项目
-`inferSchema` 只接收纯 JSON 对象，不解析 mockjs 模板语法。使用 mockjs 的项目，需先调用 `Mock.mock(template)` 得到结果再传入：
-
 ```ts
-import Mock from 'mockjs'
 import { inferSchema } from '@ai-request-guard/core'
 
-const mock = Mock.mock({ 'id|1-100': 1, userName: '@cname' })
-schema: inferSchema(mock)  // 传执行结果，不传模板
+const mock = { userName: '张三', mobile: '13800138000', age: 28, active: true }
+const schema = inferSchema(mock)
+// => { userName: '', mobile: '', age: 0, active: false }
 ```
-:::
 
 ---
 
@@ -258,23 +226,12 @@ function validateSchema(id: string, data: unknown, schema: Schema): SchemaDiff
 
 **示例（单元测试中使用）：**
 
-::: code-group
-
-```js [JS]
+```ts
 import { validateSchema, hasDiff } from '@ai-request-guard/core'
 
-const diff = validateSchema('user-detail', adapterOutput, expectedSchema)
+const diff = validateSchema('getUserDetailAdapter', adapterOutput, expectedSchema)
 expect(hasDiff(diff)).toBe(false)
 ```
-
-```ts [TS]
-import { validateSchema, hasDiff } from '@ai-request-guard/core'
-
-const diff = validateSchema('user-detail', adapterOutput, expectedSchema)
-expect(hasDiff(diff)).toBe(false)
-```
-
-:::
 
 ---
 
@@ -310,15 +267,22 @@ function clearDiffRecords(): void
 
 ## 类型定义(TS)
 
+### RegisterOptions
+
+```ts
+interface RegisterOptions<T = unknown> {
+  adapter: AdapterFn<T>
+  viewSchema?: unknown | (() => unknown)
+}
+```
+
 ### GuardOptions
 
 ```ts
 interface GuardOptions<T = unknown> {
-  id: string
+  adapter: AdapterFn<T>
   request: () => Promise<unknown>
-  schema?: Schema
   mode?: GuardMode
-  mockData?: unknown | ((id: string) => unknown)
 }
 ```
 

@@ -81,11 +81,7 @@ function copyCode() {
     <div class="page-head">
       <div>
         <h2 class="page-title">Adapter 生成</h2>
-        <p class="page-desc">填写 Mock（期望 ViewModel）和 Raw（后端原始数据），AI 自动生成映射函数，复制后粘贴到项目中。</p>
-      </div>
-      <div v-if="!config.aiConfigured" class="ai-warn-banner">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        未配置 AI，请在插件选项中设置 <code>ai.apiKey</code>
+        <p class="page-desc">填写 Mock（期望 ViewModel）和 Raw（后端原始数据），生成映射函数，复制后粘贴到项目中。</p>
       </div>
     </div>
 
@@ -136,15 +132,26 @@ function copyCode() {
     <div class="action-row">
       <div class="err-msg" v-if="error">{{ error }}</div>
       <div v-else class="spacer" />
-      <button
-        class="btn-primary"
-        :disabled="loading || !config.aiConfigured || !adapterId.trim() || !mockText.trim() || !rawText.trim()"
-        @click="generate"
-      >
-        <svg v-if="!loading" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-        {{ loading ? '生成中...' : 'AI 生成 Adapter' }}
-      </button>
+      <div class="btn-group">
+        <button
+          class="btn-secondary"
+          disabled
+          title="AI 自动生成（即将推出）"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          AI 自动生成
+          <span class="btn-badge">即将推出</span>
+        </button>
+        <button
+          class="btn-primary"
+          :disabled="loading || !adapterId.trim() || !mockText.trim() || !rawText.trim()"
+          @click="generate"
+        >
+          <svg v-if="!loading" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+          <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          {{ loading ? '生成中...' : '手动生成' }}
+        </button>
+      </div>
     </div>
 
     <!-- Result -->
@@ -178,21 +185,6 @@ function copyCode() {
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .page-title { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
 .page-desc { font-size: 13px; color: var(--text-muted); }
-
-.ai-warn-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(245,158,11,.08);
-  border: 1px solid rgba(245,158,11,.2);
-  border-radius: var(--radius);
-  padding: 9px 14px;
-  font-size: 12px;
-  color: var(--amber);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.ai-warn-banner code { font-family: 'Cascadia Code', monospace; font-size: 11px; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
@@ -263,6 +255,8 @@ function copyCode() {
 .spacer { flex: 1; }
 .err-msg { flex: 1; font-size: 12px; color: var(--red); }
 
+.btn-group { display: flex; align-items: center; gap: 8px; }
+
 .result-card { }
 .result-meta { display: flex; align-items: center; gap: 10px; }
 
@@ -304,6 +298,33 @@ function copyCode() {
 .btn-primary:hover:not(:disabled) { opacity: .88; }
 .btn-primary:active:not(:disabled) { transform: translateY(1px); }
 .btn-primary:disabled { opacity: .35; cursor: not-allowed; }
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  border: 1px solid var(--border-sub);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: not-allowed;
+  opacity: .45;
+  flex-shrink: 0;
+}
+
+.btn-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 20px;
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid rgba(245,158,11,.2);
+  font-weight: 500;
+}
 
 .btn-ghost {
   background: transparent;

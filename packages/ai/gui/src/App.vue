@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { inject, ref, watch, onMounted } from 'vue'
-import SchemaPanel from './components/SchemaPanel.vue'
 import AdapterPanel from './components/AdapterPanel.vue'
 
 interface GuiConfig { aiConfigured: boolean; fileType: string }
 const config = inject<GuiConfig>('guiConfig')!
-
-const activeTab = ref<'schema' | 'adapter'>('schema')
 
 const STORAGE_KEY = 'ai-request-guard-theme'
 const theme = ref<'dark' | 'light'>('dark')
@@ -51,21 +48,15 @@ function toggleTheme() {
         </div>
       </div>
       <nav class="tab-nav">
-        <button :class="['tab-btn', { active: activeTab === 'schema' }]" @click="activeTab = 'schema'">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-          Schema 推导
-        </button>
-        <button :class="['tab-btn', { active: activeTab === 'adapter' }]" @click="activeTab = 'adapter'">
+        <button class="tab-btn active">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
           Adapter 生成
-          <span v-if="!config.aiConfigured" class="tab-warn">需配置 AI</span>
         </button>
       </nav>
     </header>
 
     <main class="content">
-      <SchemaPanel v-if="activeTab === 'schema'" />
-      <AdapterPanel v-else :config="config" />
+      <AdapterPanel :config="config" />
     </main>
   </div>
 </template>

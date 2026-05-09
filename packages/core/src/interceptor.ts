@@ -2,7 +2,7 @@
  * 真实请求拦截模块（仅 dev 构建）。
  *
  * 职责：
- * 1. 维护 url 模式 → adapter id 的映射表（通过 watchUrl 注册）
+ * 1. 维护 url 模式 → adapter 函数引用的映射表（通过 watchUrl 注册��
  * 2. patch window.fetch，拦截匹配的 GET 响应，把 raw data 上报给 devServer
  * 3. 只上报已注册 adapter 的接口，增删改及无 adapter 的接口自动跳过
  *
@@ -11,8 +11,10 @@
  * - 生产构建中整个模块被 tree-shake，不影响线上行为
  */
 
-/** url 模式 → adapter id 的映射，支持字符串包含匹配和正则 */
-const _watchMap: Array<{ pattern: string | RegExp; id: string }> = []
+import type { AdapterFn } from './types'
+
+/** url 模式 → adapter 函数引用的映射，支持字符串包含匹配和正则 */
+const _watchMap: Array<{ pattern: string | RegExp; adapter: AdapterFn }> = []
 
 /** devServer 上报端点，与 vite-plugin 中保持一致 */
 const REPORT_ENDPOINT = '/__ai-guard/raw'
@@ -21,22 +23,19 @@ const REPORT_ENDPOINT = '/__ai-guard/raw'
 let _installed = false
 
 /**
- * 注册一条 url → adapter id 的监听规则。
+ * 注册一条 url → adapter 函数的监听规则。
  *
- * 当 fetch 请求的 url 匹配 pattern 时，响应 raw data 会自动上报给 devServer，
- * 由 Node 端执行 adapter 转换并进行 schema diff 校验。
- *
- * 建议在应用初始化时集中注册，与 AIRequestGuard.register() 放在一起。
+ * 当 fetch 请求的 url 匹配 pattern 时，响应 raw data 会自动上报给 devServer。
  *
  * @param pattern 匹配规则：字符串（包含匹配）或正则表达式
- * @param id      对应的 adapter id，需已通过 AIRequestGuard.register() 注册
+ * @param adapter 对应的 adapter 函数引用，需已通过 AIRequestGuard.register() 注册
  *
  * @example
- * AIRequestGuard.watch('/api/user/detail', 'user-detail')
- * AIRequestGuard.watch(/\/api\/order\/\d+/, 'order-detail')
+ * AIRequestGuard.watch('/api/user/detail', getUserDetailAdapter)
+ * AIRequestGuard.watch(/\/api\/order\/\d+/, getOrderDetailAdapter)
  */
-export function watchUrl(pattern: string | RegExp, id: string): void {
-  _watchMap.push({ pattern, id })
+export function watchUrl(pattern: string | RegExp, adapter: AdapterFn): void {
+  _watchMap.push({ pattern, adapter })
   if (!_installed) {
     _installFetchInterceptor()
     _installed = true
@@ -50,11 +49,11 @@ export function clearWatchMap(): void {
   _watchMap.length = 0
 }
 
-/** 根据 url 查找匹配的 adapter id，无匹配返回 undefined */
-function matchId(url: string): string | undefined {
-  for (const { pattern, id } of _watchMap) {
+/** 根据 url 查找匹配的 adapter 函数，无匹配返回 undefined */
+function matchAdapter(url: string): AdapterFn | undefined {
+  for (const { pattern, adapter } of _watchMap) {
     if (typeof pattern === 'string' ? url.includes(pattern) : pattern.test(url)) {
-      return id
+      return adapter
     }
   }
   return undefined
@@ -63,7 +62,6 @@ function matchId(url: string): string | undefined {
 /** 上报 raw 数据到 devServer，使用 sendBeacon 保证页面卸载时也能发出 */
 function report(id: string, url: string, raw: unknown): void {
   const payload = JSON.stringify({ id, url, raw })
-  // sendBeacon 在部分浏览器不支持 JSON，需转 Blob 指定 Content-Type
   const blob = new Blob([payload], { type: 'application/json' })
   navigator.sendBeacon(REPORT_ENDPOINT, blob)
 }
@@ -80,12 +78,11 @@ function _installFetchInterceptor(): void {
 
     const response = await _originalFetch(input, init)
 
-    // 只拦截 GET 且有注册规则的 url
     if (method !== 'GET') return response
-    const id = matchId(url)
-    if (!id) return response
+    const adapter = matchAdapter(url)
+    if (!adapter) return response
 
-    // clone 后读取 body，不影响原始 response 的消费
+    const id = adapter.name || 'anonymous'
     response
       .clone()
       .json()

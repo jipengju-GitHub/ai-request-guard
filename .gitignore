@@ -2,7 +2,8 @@ node_modules/
 
 # 内部设计文档，仅本地保留
 AIRequestGuard SDK 方案设计.md
-v2-ai-plan.md
+v1-ai-plan.md
+v1.0.1-plan.md
 *.local
 .claude/
 CLAUDE.md

@@ -1,4 +1,4 @@
-import type { GuardConfig, GuardOptions, AdapterFn } from './types'
+import type { GuardConfig, GuardOptions, RegisterOptions, AdapterFn } from './types'
 import { registry } from './registry'
 import { validateSchema, hasDiff, pickBySchema } from './schema'
 import { resolveMock, setMockDev } from './mock'
@@ -34,26 +34,39 @@ if (__DEV__) {
  *
  * 执行顺序：
  * 1. 判断当前模式（mock / real），mock 模式跳过真实请求
- * 2. 查找已注册的 adapter，有则转换，无则透传原始数据（dev 模式下发出警告）
+ * 2. 通过 adapter 函数引用查找注册信息，执行转换
  * 3. dev 模式下对 adapter 输出做 schema diff 校验
  *
- * @param options 接口配置项，包含 id、request、schema、mode、mockData
+ * @param options 接口配置项，包含 adapter 函数引用和 request
  * @returns 经过 adapter 转换后的 ViewModel Promise
  */
 async function AIRequestGuard<T = unknown>(options: GuardOptions<T>): Promise<T> {
-  const { id, request, schema, mode, mockData } = options
-  // 单接口 mode 优先级高于全局 mode
+  const { adapter, request, mode } = options
+
+  if (typeof adapter !== 'function') {
+    return Promise.reject(
+      new TypeError(
+        `[AIRequestGuard] "adapter" must be a function, but got "${typeof adapter}". ` +
+          `Check for circular imports or missing exports.`
+      )
+    )
+  }
+  if (typeof request !== 'function') {
+    return Promise.reject(
+      new TypeError(`[AIRequestGuard] "request" must be a function, but got "${typeof request}".`)
+    )
+  }
+
   const effectiveMode = mode ?? _config.mode ?? 'real'
 
-  // mock 分支在生产构建时通过 rollup replace 插件将 __DEV__ 替换为 false，
-  // 使整个 if 块成为 dead code 被 tree-shake 掉，确保 mock 代码不进入生产产物。
   if (__DEV__ && effectiveMode === 'mock') {
-    const raw = resolveMock(id, mockData as ((id: string) => unknown) | undefined)
-    return applyAdapter<T>(id, raw, schema)
+    const entry = registry.get(adapter as AdapterFn)
+    const raw = resolveMock(entry?.id ?? adapter.name ?? 'anonymous', entry?.viewSchema)
+    return applyAdapter<T>(adapter as AdapterFn<T>, raw)
   }
 
   const raw = await request()
-  return applyAdapter<T>(id, raw, schema)
+  return applyAdapter<T>(adapter as AdapterFn<T>, raw)
 }
 
 /**
@@ -61,36 +74,37 @@ async function AIRequestGuard<T = unknown>(options: GuardOptions<T>): Promise<T>
  *
  * - 未注册 adapter：dev 模式警告并透传原始数据
  * - 已注册 adapter：执行转换，dev 模式下追加 schema diff 校验
- *
- * @param id      接口唯一 ID
- * @param raw     接口原始返回数据
- * @param schema  期望的 ViewModel 结构，用于 diff 校验
  */
-function applyAdapter<T>(id: string, raw: unknown, schema: GuardOptions['schema']): T {
-  const adapter = registry.get(id) as AdapterFn<T> | undefined
+function applyAdapter<T>(adapter: AdapterFn<T>, raw: unknown): T {
+  const entry = registry.get(adapter as AdapterFn)
 
-  if (!adapter) {
+  if (!entry) {
     if (_config.dev) {
+      const name = adapter.name || 'anonymous'
       console.warn(
-        `[AIRequestGuard] No adapter registered for "${id}". Raw data passed through. ` +
-          `Call AIRequestGuard.register("${id}", fn) to define a mapping.`
+        `[AIRequestGuard] Adapter "${name}" is not registered. ` +
+          `Call AIRequestGuard.register({ adapter: ${name} }) before use.`
       )
     }
-    return raw as T
+    return adapter(raw)
   }
 
   const result = adapter(raw)
 
-  if (_config.dev && schema) {
-    const diff = validateSchema(id, result, schema)
+  if (_config.dev && entry.schema) {
+    const diff = validateSchema(entry.id, result, entry.schema)
     if (__DEV__) reportDiff(diff)
     if (hasDiff(diff)) {
-      console.warn(`[AIRequestGuard] Schema diff detected for "${id}":`, diff)
+      console.warn(`[AIRequestGuard] Schema diff detected for "${entry.id}":`, diff)
+    }
+  } else if (_config.dev && !entry.viewSchema) {
+    if (__DEV__) {
+      console.info(`[AIRequestGuard] No viewSchema configured for "${entry.id}", skipping diff check.`)
     }
   }
 
-  if (schema && Object.keys(schema).length > 0) {
-    return pickBySchema(result, schema) as T
+  if (entry.schema && Object.keys(entry.schema).length > 0) {
+    return pickBySchema(result, entry.schema) as T
   }
 
   return result
@@ -100,22 +114,28 @@ function applyAdapter<T>(id: string, raw: unknown, schema: GuardOptions['schema'
  * 注册 adapter。
  *
  * adapter 是一个纯函数，负责将后端 DTO（raw）映射为前端 ViewModel。
- * dev 模式下重复注册同一 id 会发出警告。
- *
- * @param id  接口唯一 ID，与 AIRequestGuard({ id }) 对应
- * @param fn  转换函数 (raw: unknown) => T
+ * 函数名自动作为内部 ID，dev 模式下重复注册同一函数会发出警告。
  *
  * @example
- * AIRequestGuard.register('user-detail', (raw) => ({
- *   id: raw.user_id,
- *   userName: raw.username,
- * }))
+ * AIRequestGuard.register({
+ *   viewSchema: () => ({ id: 1, name: '' }),
+ *   adapter: getEmployeePageAdapter,
+ * })
  */
-AIRequestGuard.register = function <T>(id: string, fn: AdapterFn<T>): void {
-  if (_config.dev && registry.has(id)) {
-    console.warn(`[AIRequestGuard] Adapter for "${id}" is being overwritten.`)
+AIRequestGuard.register = function <T>(options: RegisterOptions<T>): void {
+  const { adapter } = options
+  if (typeof adapter !== 'function') {
+    console.error(
+      `[AIRequestGuard] register() requires a function as "adapter", but got "${typeof adapter}". ` +
+        `Check for circular imports or missing exports.`
+    )
+    return
   }
-  registry.register(id, fn)
+  if (_config.dev && registry.has(adapter as AdapterFn)) {
+    const name = adapter.name || 'anonymous'
+    console.warn(`[AIRequestGuard] Adapter "${name}" is being overwritten.`)
+  }
+  registry.register(options)
 }
 
 /**
@@ -151,17 +171,28 @@ AIRequestGuard.configure = function (config: GuardConfig): void {
  * 当 fetch 发出的 GET 请求 url 匹配 pattern 时，响应 raw data 会被自动上报给
  * devServer（`/__ai-guard/raw`），由 Node 端执行 adapter 转换并做 schema diff 校验。
  *
- * 适用于查询类接口。增删改接口的响应结构无需映射，无需注册。
- *
- * @param pattern 匹配规则：字符串（url 包含匹配）或正则表达式
- * @param id      已通过 AIRequestGuard.register() 注册的 adapter id
+ * @param pattern  匹配规则：字符串（url 包含匹配）或正则表达式
+ * @param adapter  已通过 AIRequestGuard.register() 注册的 adapter 函数引用
  *
  * @example
- * AIRequestGuard.watch('/api/user/detail', 'user-detail')
- * AIRequestGuard.watch(/\/api\/order\/\d+/, 'order-detail')
+ * AIRequestGuard.watch('/api/employee/page', getEmployeePageAdapter)
+ * AIRequestGuard.watch(/\/api\/order\/\d+/, getOrderDetailAdapter)
  */
-AIRequestGuard.watch = function (pattern: string | RegExp, id: string): void {
-  if (__DEV__) watchUrl(pattern, id)
+AIRequestGuard.watch = function (pattern: string | RegExp, adapter: AdapterFn): void {
+  if (__DEV__) {
+    if (typeof pattern !== 'string' && !(pattern instanceof RegExp)) {
+      console.error(`[AIRequestGuard] watch() requires a string or RegExp as "pattern".`)
+      return
+    }
+    if (typeof adapter !== 'function') {
+      console.error(
+        `[AIRequestGuard] watch() requires a function as "adapter", but got "${typeof adapter}". ` +
+          `Check for circular imports or missing exports.`
+      )
+      return
+    }
+    watchUrl(pattern, adapter)
+  }
 }
 
 /**

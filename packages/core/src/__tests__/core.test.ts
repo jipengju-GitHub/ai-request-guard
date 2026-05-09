@@ -133,33 +133,60 @@ describe('registry', () => {
   beforeEach(() => registry.clear())
 
   it('注册并获取 adapter', () => {
-    const fn = (r: unknown) => r
-    registry.register('api-a', fn)
-    expect(registry.get('api-a')).toBe(fn)
+    function myAdapter(r: unknown) { return r }
+    registry.register({ adapter: myAdapter })
+    const entry = registry.get(myAdapter)
+    expect(entry).toBeDefined()
+    expect(entry?.id).toBe('myAdapter')
   })
 
   it('未注册返回 undefined', () => {
-    expect(registry.get('nonexistent')).toBeUndefined()
+    function unknownAdapter(r: unknown) { return r }
+    expect(registry.get(unknownAdapter)).toBeUndefined()
   })
 
   it('has 正确判断存在性', () => {
-    registry.register('api-b', (r) => r)
-    expect(registry.has('api-b')).toBe(true)
-    expect(registry.has('api-c')).toBe(false)
+    function adapterB(r: unknown) { return r }
+    function adapterC(r: unknown) { return r }
+    registry.register({ adapter: adapterB })
+    expect(registry.has(adapterB)).toBe(true)
+    expect(registry.has(adapterC)).toBe(false)
   })
 
   it('重复注册覆盖旧值', () => {
-    const fn1 = () => 1
-    const fn2 = () => 2
-    registry.register('api-d', fn1)
-    registry.register('api-d', fn2)
-    expect(registry.get('api-d')).toBe(fn2)
+    function adapterD(r: unknown) { return r }
+    registry.register({ adapter: adapterD, viewSchema: { a: 1 } })
+    registry.register({ adapter: adapterD, viewSchema: { b: 2 } })
+    const entry = registry.get(adapterD)
+    expect(entry?.viewSchema).toEqual({ b: 2 })
   })
 
   it('clear 清空所有注册', () => {
-    registry.register('api-e', (r) => r)
+    function adapterE(r: unknown) { return r }
+    registry.register({ adapter: adapterE })
     registry.clear()
-    expect(registry.has('api-e')).toBe(false)
+    expect(registry.has(adapterE)).toBe(false)
+  })
+
+  it('viewSchema 工厂函数被调用，schema 自动推导', () => {
+    function adapterF(r: unknown) { return r }
+    registry.register({ adapter: adapterF, viewSchema: () => ({ name: 'test', age: 0 }) })
+    const entry = registry.get(adapterF)
+    expect(entry?.schema).toEqual({ name: '', age: 0 })
+  })
+
+  it('viewSchema 静态值自动推导 schema', () => {
+    function adapterG(r: unknown) { return r }
+    registry.register({ adapter: adapterG, viewSchema: { id: 1, label: 'foo' } })
+    const entry = registry.get(adapterG)
+    expect(entry?.schema).toEqual({ id: 0, label: '' })
+  })
+
+  it('不传 viewSchema 时 schema 为 undefined', () => {
+    function adapterH(r: unknown) { return r }
+    registry.register({ adapter: adapterH })
+    const entry = registry.get(adapterH)
+    expect(entry?.schema).toBeUndefined()
   })
 })
 
@@ -172,18 +199,18 @@ describe('resolveMock', () => {
     expect(resolveMock('id', { foo: 1 })).toEqual({ foo: 1 })
   })
 
-  it('工厂函数接收 id 并调用', () => {
-    const fn = vi.fn((id: string) => ({ id }))
+  it('工厂函数被调用并返回结果', () => {
+    const fn = vi.fn(() => ({ name: 'mock' }))
     const result = resolveMock('my-id', fn)
-    expect(fn).toHaveBeenCalledWith('my-id')
-    expect(result).toEqual({ id: 'my-id' })
+    expect(fn).toHaveBeenCalled()
+    expect(result).toEqual({ name: 'mock' })
   })
 
-  it('无 mockData 返回 null', () => {
+  it('无 viewSchema 返回 null', () => {
     expect(resolveMock('id', undefined)).toBeNull()
   })
 
-  it('无 mockData 且 dev=true 时发出警告', () => {
+  it('无 viewSchema 且 dev=true 时发出警告', () => {
     setMockDev(true)
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     resolveMock('missing-id', undefined)

@@ -42,17 +42,17 @@ npm install -D @ai-request-guard/webpack-plugin
 
 ## 5 分钟快速上手
 
-### 1. 注册 Adapter
+### 1. 编写并注册 Adapter
 
-在应用初始化时，为每个接口注册一个 adapter 函数，负责将后端原始数据映射为前端视图模型：
+在防腐层文件中定义 adapter 函数并调用 `register`，将 `viewSchema`（期望的 ViewModel 结构）和 adapter 一起注册：
 
 ::: code-group
 
 ```js [JS]
+// src/adapters/userAdapter.js
 import AIRequestGuard from '@ai-request-guard/core'
 
-// 用户详情接口
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw) => {
   const dept = raw.dept ?? {}
   return {
     id: raw.user_id,
@@ -61,14 +61,19 @@ AIRequestGuard.register('user-detail', (raw) => {
     deptName: dept.dept_name ?? '未知部门',
     age: Number(raw.age ?? 0),
   }
+}
+
+AIRequestGuard.register({
+  viewSchema: () => ({ id: 0, userName: '', mobile: '', deptName: '', age: 0 }),
+  adapter: getUserDetailAdapter,
 })
 ```
 
 ```ts [TS]
+// src/adapters/userAdapter.ts
 import AIRequestGuard from '@ai-request-guard/core'
 
-// 用户详情接口
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw: unknown) => {
   const r = raw as Record<string, unknown>
   const dept = (r.dept ?? {}) as Record<string, unknown>
   return {
@@ -78,6 +83,11 @@ AIRequestGuard.register('user-detail', (raw) => {
     deptName: (dept.dept_name as string) ?? '未知部门',
     age: Number(r.age ?? 0),
   }
+}
+
+AIRequestGuard.register({
+  viewSchema: () => ({ id: 0, userName: '', mobile: '', deptName: '', age: 0 }),
+  adapter: getUserDetailAdapter,
 })
 ```
 
@@ -85,13 +95,15 @@ AIRequestGuard.register('user-detail', (raw) => {
 
 ### 2. 发起请求
 
-用 `AIRequestGuard()` 包裹真实的请求函数：
+应用层只需传入 adapter 函数引用，支持 IDE Cmd/Ctrl+Click 直接跳转到防腐层文件：
 
 ::: code-group
 
 ```js [JS]
+import { getUserDetailAdapter } from './adapters/userAdapter'
+
 const user = await AIRequestGuard({
-  id: 'user-detail',
+  adapter: getUserDetailAdapter,
   request: () => fetch('/api/user/detail').then(r => r.json()),
 })
 
@@ -99,8 +111,10 @@ console.log(user.userName) // 已映射为 ViewModel 字段
 ```
 
 ```ts [TS]
+import { getUserDetailAdapter } from './adapters/userAdapter'
+
 const user = await AIRequestGuard({
-  id: 'user-detail',
+  adapter: getUserDetailAdapter,
   request: () => fetch('/api/user/detail').then(r => r.json()),
 })
 
@@ -222,13 +236,17 @@ if (process.env.NODE_ENV === 'development') {
 ::: code-group
 
 ```js [JS]
+import { getUserDetailAdapter } from './adapters/userAdapter'
+
 // 当 fetch 请求匹配到 /api/user/detail 时，自动上报 raw 数据
-AIRequestGuard.watch('/api/user/detail', 'user-detail')
+AIRequestGuard.watch('/api/user/detail', getUserDetailAdapter)
 ```
 
 ```ts [TS]
+import { getUserDetailAdapter } from './adapters/userAdapter'
+
 // 当 fetch 请求匹配到 /api/user/detail 时，自动上报 raw 数据
-AIRequestGuard.watch('/api/user/detail', 'user-detail')
+AIRequestGuard.watch('/api/user/detail', getUserDetailAdapter)
 ```
 
 :::

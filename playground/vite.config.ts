@@ -25,6 +25,8 @@ export default defineConfig(({ mode }) => ({
   base: mode === 'production' ? '/playground/' : '/',
   server: {
     host: '0.0.0.0',
+    port: 5173,
+    strictPort: true,
   },
   resolve: {
     alias: {

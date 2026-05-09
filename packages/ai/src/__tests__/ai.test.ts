@@ -17,16 +17,18 @@ describe('generateAdapter', () => {
   it('直接返回代码块时解析成功', async () => {
     const code = `(raw) => ({ userName: raw.username, mobile: raw.phone_no, age: raw.age })`
     const provider = makeMockProvider(code)
-    const result = await generateAdapter({ provider, adapterId: 'user-detail', schema, raw })
-    expect(result.code).toContain("register('user-detail'")
+    const result = await generateAdapter({ provider, adapterId: 'getUserDetailAdapter', schema, raw })
+    expect(result.code).toContain('export const getUserDetailAdapter =')
+    expect(result.code).toContain('AIRequestGuard.register({')
+    expect(result.code).toContain('adapter: getUserDetailAdapter')
     expect(result.warnings).toHaveLength(0)
   })
 
   it('markdown 代码块格式能正常提取', async () => {
     const code = `(raw) => ({ userName: raw.username, mobile: raw.phone_no, age: raw.age })`
     const provider = makeMockProvider(`\`\`\`typescript\n${code}\n\`\`\``)
-    const result = await generateAdapter({ provider, adapterId: 'user-detail', schema, raw })
-    expect(result.code).toContain("register('user-detail'")
+    const result = await generateAdapter({ provider, adapterId: 'getUserDetailAdapter', schema, raw })
+    expect(result.code).toContain('AIRequestGuard.register({')
     expect(result.warnings).toHaveLength(0)
   })
 
@@ -34,7 +36,7 @@ describe('generateAdapter', () => {
     // Returns object missing 'mobile' field
     const code = `(raw) => ({ userName: raw.username, age: raw.age })`
     const provider = makeMockProvider(code)
-    const result = await generateAdapter({ provider, adapterId: 'user-detail', schema, raw })
+    const result = await generateAdapter({ provider, adapterId: 'getUserDetailAdapter', schema, raw })
     expect(result.warnings.some(w => w.includes('mobile'))).toBe(true)
   })
 
@@ -42,7 +44,7 @@ describe('generateAdapter', () => {
     const code = `(raw) => { throw new Error('boom') }`
     const provider = makeMockProvider(code)
     await expect(
-      generateAdapter({ provider, adapterId: 'user-detail', schema, raw })
+      generateAdapter({ provider, adapterId: 'getUserDetailAdapter', schema, raw })
     ).rejects.toThrow('validation')
   })
 
@@ -50,7 +52,7 @@ describe('generateAdapter', () => {
     const code = `(raw) => 'not-an-object'`
     const provider = makeMockProvider(code)
     await expect(
-      generateAdapter({ provider, adapterId: 'user-detail', schema, raw })
+      generateAdapter({ provider, adapterId: 'getUserDetailAdapter', schema, raw })
     ).rejects.toThrow('validation')
   })
 })
@@ -63,7 +65,7 @@ describe('openaiCompatible', () => {
   it('调用正确的 URL 并解析 choices[0].message.content', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ choices: [{ message: { content: 'hello' } }] }),
+      text: async () => JSON.stringify({ choices: [{ message: { content: 'hello' } }] }),
     })
     vi.stubGlobal('fetch', mockFetch)
 
@@ -91,7 +93,7 @@ describe('anthropic', () => {
   it('调用 Anthropic API 并解析 content[0].text', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ content: [{ text: 'world' }] }),
+      text: async () => JSON.stringify({ content: [{ text: 'world' }] }),
     })
     vi.stubGlobal('fetch', mockFetch)
 

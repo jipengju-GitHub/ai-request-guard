@@ -101,5 +101,11 @@ function calcConfidence(code: string, schemaKeys: string[], warnings: string[]):
 }
 
 function buildSnippet(adapterId: string, adapterBody: string): string {
-  return `AIRequestGuard.register('${adapterId}', ${adapterBody})`
+  return [
+    `export const ${adapterId} = ${adapterBody}`,
+    ``,
+    `AIRequestGuard.register({`,
+    `  adapter: ${adapterId},`,
+    `})`,
+  ].join('\n')
 }

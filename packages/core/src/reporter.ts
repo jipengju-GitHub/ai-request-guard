@@ -168,8 +168,8 @@ ${detailsHtml || '<p class="empty">所有接口 schema 均匹配，无差异 ✓
 }
 
 /** HTML 转义，防止接口 ID 或字段名中的特殊字符破坏报告结构 */
-function escHtml(str: string): string {
-  return str
+function escHtml(str: unknown): string {
+  return String(str ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
