@@ -6,7 +6,7 @@ import { defineConfig } from 'rollup'
 export default defineConfig([
   {
     input: 'src/index.ts',
-    external: ['fs', 'path', 'vm', 'http', 'net'],
+    external: ['fs', 'path', 'vm', 'http', 'https', 'net'],
     output: [
       { file: 'dist/index.js', format: 'esm', exports: 'named' },
       { file: 'dist/index.cjs', format: 'cjs', exports: 'named' },
@@ -27,7 +27,7 @@ export default defineConfig([
   },
   {
     input: 'src/index.ts',
-    external: ['fs', 'path', 'vm', 'http', 'net'],
+    external: ['fs', 'path', 'vm', 'http', 'https', 'net'],
     output: { file: 'dist/index.d.ts', format: 'esm' },
     plugins: [dts()],
   },
