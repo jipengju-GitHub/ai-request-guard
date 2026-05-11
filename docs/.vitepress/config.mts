@@ -5,6 +5,9 @@ const playgroundUrl = isProd ? 'https://guard.pennji.cn/playground/' : 'http://l
 
 export default defineConfig({
   base: '/',
+  sitemap: {
+    hostname: 'https://guard.pennji.cn',
+  },
   vite: {
     server: {
       host: '0.0.0.0',
