@@ -2,7 +2,7 @@
  * 真实请求拦截模块（仅 dev 构建）。
  *
  * 职责：
- * 1. 维护 url 模式 → adapter 函数引用的映射表（通过 watchUrl 注册��
+ * 1. 维护 url 模式 → adapter 函数引用的映射表（通过 watchUrl 注册）
  * 2. patch window.fetch，拦截匹配的 GET 响应，把 raw data 上报给 devServer
  * 3. 只上报已注册 adapter 的接口，增删改及无 adapter 的接口自动跳过
  *

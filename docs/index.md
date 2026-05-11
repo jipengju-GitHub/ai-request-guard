@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: AIRequestGuard
-  text: 前端防腐层 SDK
-  tagline: 用 Adapter 模式隔离后端数据结构变化，让接口重构不再影响前端视图逻辑
+  text: 前端请求防腐层
+  tagline: 静态即终版，联调无重构。
   actions:
     - theme: brand
       text: 快速上手
@@ -14,19 +14,19 @@ hero:
       link: /api/core
 
 features:
-  - icon: 🔄
-    title: Adapter 模式
-    details: 将后端 DTO 与前端 ViewModel 彻底解耦。后端字段改名、结构调整，只需更新 adapter，视图代码零修改。
+  - icon: 🏗️
+    title: 防腐层隔离
+    details: 在请求边界建立稳固的防腐层，将后端 DTO 与前端 ViewModel 彻底解耦。后端字段改名、结构重组，只需更新对应 adapter，业务组件代码保持稳定。天然适配 BFF、微前端、直连后端等各类架构。
+
+  - icon: 🔌
+    title: 不限框架与构建工具
+    details: 框架无关，Vue、React、Svelte 等均可接入，核心库无任何框架依赖。原生支持 Vite 与 Webpack 4/5，构建插件在 dev 模式挂载 GUI 与差异报告，生产构建自动 tree-shake，零运行时开销。
 
   - icon: 🤖
-    title: AI Adapter 生成
-    details: 配置 AI provider 后，在 GUI 管理界面粘贴 mock 数据和后端原始 JSON，一键生成带置信度标注的 adapter 初稿，大幅降低接入成本。
-
-  - icon: 🧪
-    title: Mock 系统
-    details: 支持静态数据和工厂函数两种 mock 形式，开发阶段无需等待后端接口，生产构建自动 tree-shake。
+    title: AI 辅助 Adapter 生成
+    details: 在 GUI 管理界面粘贴 Mock ViewModel 和后端原始 JSON，AI 自动推导字段映射关系，输出带置信度标注的 adapter 初稿，大幅降低接入成本，尤其适合字段多、命名差异大的复杂接口。
 
   - icon: 📊
-    title: Schema 校验与差异报告
-    details: 开发模式下自动对比 adapter 输出与预期 schema，缺失字段、类型不匹配实时告警；配合构建插件，真实请求触发后生成 HTML 差异报告，直观定位问题。
+    title: 运行时 Schema 校验
+    details: 开发模式下自动对比 adapter 输出与预期 ViewModel schema，缺失字段、类型不匹配实时告警；真实请求触发后生成可视化 HTML 差异报告，精准定位接口漂移。
 ---

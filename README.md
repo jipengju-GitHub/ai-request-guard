@@ -1,8 +1,10 @@
 # AIRequestGuard
 
-前端防腐层 SDK。用 Adapter 模式将后端 DTO 与前端 ViewModel 彻底解耦，让接口字段重命名、结构调整不再影响视图代码。
+前端请求防腐层 SDK。用 Adapter 模式在请求边界隔离后端 DTO 变更，让接口重构对前端视图层零感知。
 
-**AI Adapter 生成**：配置 AI provider 后，在 GUI 管理界面粘贴 mock 数据和后端原始 JSON，一键生成带置信度标注的 adapter 初稿。
+不绑定框架（Vue / React / Svelte 等），不绑定构建工具（Vite / Webpack 4/5），适用于 BFF、微前端、直连后端等各类现代前端架构。
+
+**AI Adapter 生成**：在 GUI 管理界面粘贴 Mock ViewModel 和后端原始 JSON，AI 自动推导字段映射并生成带置信度标注的 adapter 初稿。
 
 📖 **文档**：[guard.pennji.cn](https://guard.pennji.cn)　　🎮 **Playground**：[guard.pennji.cn/playground](https://guard.pennji.cn/playground/)
 
