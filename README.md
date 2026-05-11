@@ -24,8 +24,8 @@ pnpm add -D @ai-request-guard/vite-plugin  # 可选，Vite 项目使用
 ```typescript
 import AIRequestGuard from '@ai-request-guard/core'
 
-// 1. 注册 adapter：后端 DTO → 前端 ViewModel
-AIRequestGuard.register('user-detail', (raw) => {
+// 1. 定义 adapter：后端 DTO → 前端 ViewModel
+function getUserDetailAdapter(raw: unknown) {
   const r = raw as Record<string, unknown>
   return {
     id: r.user_id as number,
@@ -33,13 +33,19 @@ AIRequestGuard.register('user-detail', (raw) => {
     mobile: (r.phone_no as string) ?? '',
     age: Number(r.age ?? 0),
   }
+}
+
+// 2. 注册 adapter（函数名自动作为 ID）
+AIRequestGuard.register({
+  adapter: getUserDetailAdapter,
+  // viewSchema 可选：用于 dev 模式 schema diff 校验 + mock 数据
+  viewSchema: () => ({ id: 0, userName: '', mobile: '', age: 0 }),
 })
 
-// 2. 发起请求，自动经过 adapter 转换
+// 3. 发起请求，自动经过 adapter 转换
 const user = await AIRequestGuard({
-  id: 'user-detail',
+  adapter: getUserDetailAdapter,
   request: () => fetch('/api/user/detail').then(r => r.json()),
-  schema: { id: 0, userName: '', mobile: '', age: 0 },
 })
 
 console.log(user.userName) // ViewModel 字段，不受后端字段名变化影响
@@ -53,18 +59,20 @@ console.log(user.userName) // ViewModel 字段，不受后端字段名变化影�
   ➜  AIRequestGuard GUI:  http://localhost:5174
 ```
 
-在 GUI 中填写 Adapter ID、粘贴 Mock JSON 和 Raw JSON，点击「生成 Adapter」即可得到初稿：
+在 GUI 中填写 Adapter ID、粘贴 Mock JSON 和 Raw JSON，点击「手动生成」即可得到初稿：
 
 ```typescript
-// AI 生成示例，每个字段带置信度标注
-AIRequestGuard.register('user-detail', (raw) => {
+// GUI 生成示例，复制后粘贴到项目中
+function getUserDetailAdapter(raw: unknown) {
   const r = raw as Record<string, unknown>
   return {
-    id: r.user_id as number,        // ✅
-    mobile: r.phone_no as string,   // ❓ 请确认：phone_no 是否对应 mobile
-    // avatar: ???                  // ❌ 未找到对应字段，请手动填写
+    id: r.user_id as number,
+    mobile: r.phone_no as string,
+    // avatar: ???  // 未找到对应字段，请手动补充
   }
-})
+}
+
+AIRequestGuard.register({ adapter: getUserDetailAdapter })
 ```
 
 支持 OpenAI 兼容格式（DeepSeek、通义千问等）和 Anthropic Claude。apiKey 仅存于 Node 层，不进入浏览器产物。
