@@ -1,18 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- 盾牌主体 -->
-  <path d="M32 4 L56 14 L56 32 C56 45 44 56 32 60 C20 56 8 45 8 32 L8 14 Z"
-        fill="url(#shield-grad)" stroke="url(#stroke-grad)" stroke-width="1.5"/>
-  <!-- 闪电 -->
-  <path d="M36 14 L26 34 L33 34 L28 50 L42 28 L35 28 Z"
-        fill="white" opacity="0.95"/>
+  <!-- 盾牌外轮廓 - 圆润设计感 -->
+  <path d="M32 3C32 3 10 12 10 12V30C10 46 32 61 32 61C32 61 54 46 54 30V12L32 3Z"
+        fill="url(#bg)" stroke="url(#border)" stroke-width="1.2" stroke-linejoin="round"/>
+  <!-- 内层盾牌 -->
+  <path d="M32 9C32 9 15 16 15 16V29C15 42 32 55 32 55C32 55 49 42 49 29V16L32 9Z"
+        fill="url(#inner)" opacity="0.4"/>
+  <!-- 中心：括号 + 连接线 — 象征 adapter 转换 -->
+  <g stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.92">
+    <!-- 左花括号 -->
+    <path d="M22 25L19 28L22 31"/>
+    <!-- 右花括号 -->
+    <path d="M42 25L45 28L42 31"/>
+    <!-- 中心箭头：DTO → ViewModel -->
+    <line x1="26" y1="28" x2="38" y2="28"/>
+    <polyline points="35,25 38,28 35,31"/>
+  </g>
+  <!-- 底部小圆点装饰 -->
+  <circle cx="32" cy="40" r="1.8" fill="white" opacity="0.7"/>
+  <circle cx="27" cy="38" r="1" fill="white" opacity="0.4"/>
+  <circle cx="37" cy="38" r="1" fill="white" opacity="0.4"/>
   <defs>
-    <linearGradient id="shield-grad" x1="32" y1="4" x2="32" y2="60" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#3b82f6"/>
-      <stop offset="100%" stop-color="#1d4ed8"/>
+    <linearGradient id="bg" x1="10" y1="3" x2="54" y2="61" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#a855f7"/>
     </linearGradient>
-    <linearGradient id="stroke-grad" x1="32" y1="4" x2="32" y2="60" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#93c5fd"/>
-      <stop offset="100%" stop-color="#3b82f6"/>
+    <linearGradient id="border" x1="10" y1="3" x2="54" y2="61" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#a5b4fc"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+    <linearGradient id="inner" x1="15" y1="9" x2="49" y2="55" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fff"/>
+      <stop offset="100%" stop-color="#e0e7ff"/>
     </linearGradient>
   </defs>
 </svg>
