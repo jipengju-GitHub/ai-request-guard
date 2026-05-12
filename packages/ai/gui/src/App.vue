@@ -30,8 +30,9 @@ function toggleTheme() {
       <div class="header-inner">
         <div class="brand">
           <div class="brand-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+            <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
+              <path d="M32 3C32 3 10 12 10 12V30C10 46 32 61 32 61C32 61 54 46 54 30V12L32 3Z" fill="#8b5cf6"/>
+              <path d="M35 14L25 34h7l-5 16 14-22h-7z" fill="white" opacity="0.95"/>
             </svg>
           </div>
           <span class="brand-name">AIRequestGuard</span>

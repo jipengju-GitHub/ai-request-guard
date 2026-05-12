@@ -1,24 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- 盾牌外轮廓 - 圆润设计感 -->
+  <!-- 盾牌外轮廓 -->
   <path d="M32 3C32 3 10 12 10 12V30C10 46 32 61 32 61C32 61 54 46 54 30V12L32 3Z"
         fill="url(#bg)" stroke="url(#border)" stroke-width="1.2" stroke-linejoin="round"/>
   <!-- 内层盾牌 -->
   <path d="M32 9C32 9 15 16 15 16V29C15 42 32 55 32 55C32 55 49 42 49 29V16L32 9Z"
         fill="url(#inner)" opacity="0.4"/>
-  <!-- 中心：括号 + 连接线 — 象征 adapter 转换 -->
-  <g stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.92">
-    <!-- 左花括号 -->
-    <path d="M22 25L19 28L22 31"/>
-    <!-- 右花括号 -->
-    <path d="M42 25L45 28L42 31"/>
-    <!-- 中心箭头：DTO → ViewModel -->
-    <line x1="26" y1="28" x2="38" y2="28"/>
-    <polyline points="35,25 38,28 35,31"/>
-  </g>
-  <!-- 底部小圆点装饰 -->
-  <circle cx="32" cy="40" r="1.8" fill="white" opacity="0.7"/>
-  <circle cx="27" cy="38" r="1" fill="white" opacity="0.4"/>
-  <circle cx="37" cy="38" r="1" fill="white" opacity="0.4"/>
+  <!-- 中心：闪电 -->
+  <path d="M35 14L25 34h7l-5 16 14-22h-7z" fill="white" opacity="0.95"/>
   <defs>
     <linearGradient id="bg" x1="10" y1="3" x2="54" y2="61" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#6366f1"/>
