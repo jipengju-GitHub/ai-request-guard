@@ -44,10 +44,8 @@
   "peerDependencies": {
     "vite": ">=4.0.0"
   },
-  "dependencies": {
-    "@ai-request-guard/ai": "workspace:*"
-  },
   "devDependencies": {
+    "@ai-request-guard/ai": "workspace:*",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/node": "^22.0.0",
     "rollup": "^4.24.0",
