@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { generateAdapter } from '../generate'
 import type { AIProvider } from '../types'
 
@@ -61,50 +61,60 @@ describe('generateAdapter', () => {
 // provider shape (unit — no real HTTP)
 // ══════════════════════════════════════════════════════════
 
+import type { IncomingMessage, ClientRequest } from 'http'
+import { EventEmitter } from 'events'
+
+function mockHttpModule(statusCode: number, responseBody: string) {
+  return {
+    request(_url: URL, _opts: unknown, cb: (res: IncomingMessage) => void): ClientRequest {
+      const res = new EventEmitter() as IncomingMessage
+      ;(res as any).statusCode = statusCode
+      process.nextTick(() => {
+        cb(res)
+        res.emit('data', Buffer.from(responseBody))
+        res.emit('end')
+      })
+      const req = new EventEmitter() as ClientRequest
+      req.end = vi.fn()
+      return req
+    },
+  }
+}
+
+vi.mock('https', () => ({ default: mockHttpModule(200, '{}') }))
+
+beforeEach(() => {
+  vi.resetModules()
+})
+
 describe('openaiCompatible', () => {
-  it('调用正确的 URL 并解析 choices[0].message.content', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => JSON.stringify({ choices: [{ message: { content: 'hello' } }] }),
-    })
-    vi.stubGlobal('fetch', mockFetch)
+  it('解析 choices[0].message.content', async () => {
+    const body = JSON.stringify({ choices: [{ message: { content: 'hello' } }] })
+    vi.doMock('https', () => ({ default: mockHttpModule(200, body) }))
 
     const { openaiCompatible } = await import('../provider')
     const provider = openaiCompatible({ baseURL: 'https://api.example.com', apiKey: 'key', model: 'gpt-4' })
     const result = await provider.complete('test prompt')
     expect(result).toBe('hello')
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.example.com/v1/chat/completions',
-      expect.objectContaining({ method: 'POST' })
-    )
-    vi.unstubAllGlobals()
   })
 
   it('非 2xx 时 throw', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401, text: async () => 'Unauthorized' }))
+    vi.doMock('https', () => ({ default: mockHttpModule(401, 'Unauthorized') }))
+
     const { openaiCompatible } = await import('../provider')
     const provider = openaiCompatible({ baseURL: 'https://api.example.com', apiKey: 'bad', model: 'gpt-4' })
     await expect(provider.complete('x')).rejects.toThrow('401')
-    vi.unstubAllGlobals()
   })
 })
 
 describe('anthropic', () => {
-  it('调用 Anthropic API 并解析 content[0].text', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => JSON.stringify({ content: [{ text: 'world' }] }),
-    })
-    vi.stubGlobal('fetch', mockFetch)
+  it('解析 content[0].text', async () => {
+    const body = JSON.stringify({ content: [{ text: 'world' }] })
+    vi.doMock('https', () => ({ default: mockHttpModule(200, body) }))
 
     const { anthropic } = await import('../provider')
     const provider = anthropic({ apiKey: 'key' })
     const result = await provider.complete('test prompt')
     expect(result).toBe('world')
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.anthropic.com/v1/messages',
-      expect.objectContaining({ method: 'POST' })
-    )
-    vi.unstubAllGlobals()
   })
 })

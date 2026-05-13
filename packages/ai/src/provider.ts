@@ -1,14 +1,30 @@
 import type { AIProvider, OpenAICompatibleOptions, AnthropicOptions } from './types'
+import https from 'https'
+import http from 'http'
 
-async function fetchPost(url: string, headers: Record<string, string>, body: string): Promise<string> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...headers },
-    body,
+function fetchPost(url: string, headers: Record<string, string>, body: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url)
+    const mod = parsed.protocol === 'https:' ? https : http
+    const req = mod.request(
+      parsed,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers } },
+      (res) => {
+        const chunks: Buffer[] = []
+        res.on('data', (chunk: Buffer) => chunks.push(chunk))
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString()
+          if (!res.statusCode || res.statusCode >= 400) {
+            reject(new Error(`HTTP ${res.statusCode}: ${text}`))
+            return
+          }
+          resolve(text)
+        })
+      },
+    )
+    req.on('error', reject)
+    req.end(body)
   })
-  const text = await res.text()
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${text}`)
-  return text
 }
 
 /** OpenAI-compatible provider (DeepSeek, Qwen, most domestic models) */

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.3
+
+> AI provider 网络层由 `fetch` 改为 Node `http`/`https`，兼容 Node 14+。
+
+### 变更
+
+**`@ai-request-guard/ai`**
+
+- `provider.ts` 底层网络请求由全局 `fetch` 改为 Node `http`/`https` 模块，移除 Node 18+ 依赖
+
+---
+
 ## 1.0.2
 
 > 问题修复、文档优化。
