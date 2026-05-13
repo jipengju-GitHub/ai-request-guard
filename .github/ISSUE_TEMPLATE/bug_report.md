@@ -12,7 +12,7 @@ name: " Bug 反馈 (Bug Report)"
 about: 报告项目中遇到的错误或异常
 title: "[BUG] "
 labels: bug
-assignees: ""
+assignees: " "
 ---
 
 ### 1. 缺陷描述 (Describe the bug)
