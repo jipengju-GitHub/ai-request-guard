@@ -46,7 +46,7 @@ jobs:
         run: pnpm --filter playground build
 
       - name: Build docs
-        run: pnpm docs:build
+        run: pnpm build:docs
 
       - name: Copy playground into docs dist
         run: cp -r playground/dist docs/.vitepress/dist/playground
