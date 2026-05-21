@@ -173,10 +173,15 @@ ${detailsHtml || '<p class="empty">所有接口 schema 均匹配，无差异 ✓
 }
 
 function readBody(req: import('http').IncomingMessage): Promise<string> {
-  return new Promise((resolve) => {
+  const MAX = 1024 * 1024
+  return new Promise((resolve, reject) => {
     let body = ''
-    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString()
+      if (body.length > MAX) { req.destroy(); reject(new Error('Body too large')) }
+    })
     req.on('end', () => resolve(body))
+    req.on('error', reject)
   })
 }
 

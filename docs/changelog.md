@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.4
+
+> dev-server 安全加固：readBody 增加大小限制与错误处理。
+
+### 修复
+
+**`@ai-request-guard/vite-plugin`** / **`@ai-request-guard/webpack-plugin`**
+
+- `readBody` 增加 1MB 大小限制，防止恶意超大请求耗尽内存
+- `readBody` 增加 `req.on('error')` 监听，避免连接异常时 Promise 永久挂起
+
+---
+
 ## 1.0.3
 
 > AI provider 网络层由 `fetch` 改为 Node `http`/`https`，兼容 Node 14+。
