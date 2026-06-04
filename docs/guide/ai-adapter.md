@@ -122,6 +122,7 @@ AIRequestGuard.register({
 
 ```ts
 // src/services/user.ts
+import AIRequestGuard from '@ai-request-guard/core'
 import { getUserDetailAdapter } from './adapters/userAdapter'
 
 static async getUserDetail(params) {

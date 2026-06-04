@@ -20,7 +20,7 @@ response.clone().json()
 navigator.sendBeacon('/__ai-guard/raw', raw)
        ↓
 Vite devServer 中间件（/__ai-guard/raw）
-       ↓ findIdByUrl 匹配 adapter id
+       ↓ 通过 adapter 函数名匹配注册信息
 写入 rawRecords，重新生成 HTML 报告
 ```
 
@@ -36,6 +36,7 @@ import { aiRequestGuardPlugin } from '@ai-request-guard/vite-plugin'
 export default defineConfig({
   plugins: [
     aiRequestGuardPlugin({
+      reporting: true,
       outFile: 'ai-request-guard-report.html', // 报告输出路径，相对于项目根目录
       methods: ['GET'],                          // 拦截的 HTTP 方法，默认只拦截 GET
     }),
@@ -51,6 +52,7 @@ import { aiRequestGuardPlugin } from '@ai-request-guard/vite-plugin'
 export default defineConfig({
   plugins: [
     aiRequestGuardPlugin({
+      reporting: true,
       outFile: 'ai-request-guard-report.html', // 报告输出路径，相对于项目根目录
       methods: ['GET'],                          // 拦截的 HTTP 方法，默认只拦截 GET
     }),
@@ -96,34 +98,36 @@ declare module 'virtual:ai-request-guard/report-sink' {
 ```js [JS]
 // main.js（注册部分）
 import AIRequestGuard from '@ai-request-guard/core'
+ import { getUserDetailAdapter, getOrderDetailAdapter, getOrderListAdapter } from './adapters'
 
 // 字符串：URL 包含匹配
-AIRequestGuard.watch('/api/user/detail', 'user-detail')
+AIRequestGuard.watch('/api/user/detail', getUserDetailAdapter)
 
 // 正则：精确控制匹配规则
-AIRequestGuard.watch(/\/api\/order\/\d+/, 'order-detail')
+AIRequestGuard.watch(/\/api\/order\/\d+/, getOrderDetailAdapter)
 
 // 列表接口
-AIRequestGuard.watch('/api/order/list', 'order-list')
+AIRequestGuard.watch('/api/order/list', getOrderListAdapter)
 ```
 
 ```ts [TS]
 // main.ts（注册部分）
 import AIRequestGuard from '@ai-request-guard/core'
+ import { getUserDetailAdapter, getOrderDetailAdapter, getOrderListAdapter } from './adapters'
 
 // 字符串：URL 包含匹配
-AIRequestGuard.watch('/api/user/detail', 'user-detail')
+AIRequestGuard.watch('/api/user/detail', getUserDetailAdapter)
 
 // 正则：精确控制匹配规则
-AIRequestGuard.watch(/\/api\/order\/\d+/, 'order-detail')
+AIRequestGuard.watch(/\/api\/order\/\d+/, getOrderDetailAdapter)
 
 // 列表接口
-AIRequestGuard.watch('/api/order/list', 'order-list')
+AIRequestGuard.watch('/api/order/list', getOrderListAdapter)
 ```
 
 :::
 
-`watch(pattern, id)` 的第二个参数必须是已通过 `AIRequestGuard.register()` 注册的 adapter id。
+`watch(pattern, adapter)` 的第二个参数是已通过 `AIRequestGuard.register()` 注册的 adapter 函数引用。
 
 ## 触发拦截
 
@@ -151,14 +155,14 @@ const data = await res.json()
 
 ```js [JS]
 const user = await AIRequestGuard({
-  id: 'user-detail',
+  adapter: getUserDetailAdapter,
   request: () => fetch('/api/user/detail').then(r => r.json()),
 })
 ```
 
 ```ts [TS]
 const user = await AIRequestGuard({
-  id: 'user-detail',
+  adapter: getUserDetailAdapter,
   request: () => fetch('/api/user/detail').then(r => r.json()),
 })
 ```

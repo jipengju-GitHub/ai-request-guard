@@ -1,4 +1,4 @@
-# 安装与配置
+# 安装
 
 ## 为什么需要 AIRequestGuard？
 
@@ -110,6 +110,7 @@ AIRequestGuard.register({
 ::: code-group
 
 ```js [JS]
+import AIRequestGuard from '@ai-request-guard/core'
 import { getUserDetailAdapter } from './adapters/userAdapter'
 
 const user = await AIRequestGuard({
@@ -121,6 +122,7 @@ console.log(user.userName) // 已映射为 ViewModel 字段
 ```
 
 ```ts [TS]
+import AIRequestGuard from '@ai-request-guard/core'
 import { getUserDetailAdapter } from './adapters/userAdapter'
 
 const user = await AIRequestGuard({
@@ -200,9 +202,18 @@ declare module 'virtual:ai-request-guard/report-sink' {
 // vue.config.js
 const { AIGuardWebpackPlugin } = require('@ai-request-guard/webpack-plugin')
 
+// 1. 提取为变量，devServer.before 中需要引用同一个实例
+const aiGuardPlugin = new AIGuardWebpackPlugin({ reporting: true })
+
 module.exports = {
   configureWebpack: {
-    plugins: [new AIGuardWebpackPlugin({ reporting: true })],
+    plugins: [aiGuardPlugin],
+  },
+  devServer: {
+    // 2. 手动注册 devServer 端点（Vue CLI 4 必须）
+    before(app) {
+      aiGuardPlugin.applyMiddlewares(app)
+    },
   },
 }
 ```
@@ -212,31 +223,20 @@ module.exports = {
 import { AIGuardWebpackPlugin } from '@ai-request-guard/webpack-plugin'
 import { defineConfig } from '@vue/cli-service'
 
+// 1. 提取为变量，devServer.before 中需要引用同一个实例
+const aiGuardPlugin = new AIGuardWebpackPlugin({ reporting: true })
+
 export default defineConfig({
   configureWebpack: {
-    plugins: [new AIGuardWebpackPlugin({ reporting: true })],
+    plugins: [aiGuardPlugin],
+  },
+  devServer: {
+    // 2. 手动注册 devServer 端点（Vue CLI 4 必须）
+    before(app: any) {
+      aiGuardPlugin.applyMiddlewares(app)
+    },
   },
 })
-```
-
-:::
-
-在入口文件引入 `report-sink`，启用真实请求拦截：
-
-::: code-group
-
-```js [JS]
-// main.js
-if (process.env.NODE_ENV === 'development') {
-  import('@ai-request-guard/webpack-plugin/report-sink')
-}
-```
-
-```ts [TS]
-// main.ts
-if (process.env.NODE_ENV === 'development') {
-  import('@ai-request-guard/webpack-plugin/report-sink')
-}
 ```
 
 :::

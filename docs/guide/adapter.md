@@ -40,37 +40,50 @@ id, userName, mobile, deptName, age
 
 ### 第二步：写 adapter 函数
 
-新建文件 `src/api/user.js`，写一个函数，把后端字段映射到你的 ViewModel：
+在防腐层文件中定义 adapter 函数并调用 `register`，将 `viewSchema`（期望的 ViewModel 结构）和 adapter 一起注册：
 
 ::: code-group
 
 ```js [JS]
+// src/adapters/userAdapter.js
 import AIRequestGuard from '@ai-request-guard/core'
 
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw) => {
+  const dept = raw.dept ?? {}
   return {
-    id:       raw.user_id,
-    userName: raw.username,
-    mobile:   raw.phone_no,
-    deptName: raw.dept?.dept_name ?? '未知部门',
-    age:      Number(raw.age),
+    id: raw.user_id,
+    userName: raw.username ?? '',
+    mobile: raw.phone_no ?? '',
+    deptName: dept.dept_name ?? '未知部门',
+    age: Number(raw.age ?? 0),
   }
+}
+
+AIRequestGuard.register({
+  viewSchema: () => ({ id: 0, userName: '', mobile: '', deptName: '', age: 0 }),
+  adapter: getUserDetailAdapter,
 })
 ```
 
 ```ts [TS]
+// src/adapters/userAdapter.ts
 import AIRequestGuard from '@ai-request-guard/core'
 
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw: unknown) => {
   const r = raw as Record<string, unknown>
   const dept = (r.dept ?? {}) as Record<string, unknown>
   return {
-    id:       r.user_id as number,
-    userName: r.username as string,
-    mobile:   r.phone_no as string,
+    id: r.user_id as number,
+    userName: (r.username as string) ?? '',
+    mobile: (r.phone_no as string) ?? '',
     deptName: (dept.dept_name as string) ?? '未知部门',
-    age:      Number(r.age),
+    age: Number(r.age ?? 0),
   }
+}
+
+AIRequestGuard.register({
+  viewSchema: () => ({ id: 0, userName: '', mobile: '', deptName: '', age: 0 }),
+  adapter: getUserDetailAdapter,
 })
 ```
 
@@ -83,35 +96,31 @@ AIRequestGuard.register('user-detail', (raw) => {
 ::: code-group
 
 ```js [JS]
+import { getUserDetailAdapter } from './adapters/userAdapter'
+
 export async function getUserDetail() {
   return AIRequestGuard({
-    id: 'user-detail',                                          // 对应上面 register 的 id
-    request: () => fetch('/api/user/detail').then(r => r.json()), // 真实请求函数
+    adapter: getUserDetailAdapter, 
+    request: () => fetch('/api/user/detail').then((r) => r.json()), // 真实请求函数
   })
 }
-
-// 调用
-const user = await getUserDetail()
-console.log(user.userName) // "penn"，已经是 ViewModel 字段了
 ```
 
 ```ts [TS]
+import { getUserDetailAdapter } from './adapters/userAdapter'
+
 export async function getUserDetail() {
   return AIRequestGuard({
-    id: 'user-detail',
-    request: () => fetch('/api/user/detail').then(r => r.json()),
+    adapter: getUserDetailAdapter, 
+    request: () => fetch('/api/user/detail').then((r) => r.json()),
   })
 }
-
-const user = await getUserDetail()
-console.log(user.userName) // "penn"
 ```
 
 :::
 
 ::: warning register 必须先执行
 `AIRequestGuard.register()` 必须在 `AIRequestGuard()` 调用之前执行。
-建议在 `src/main.js` 入口或请求函数所在文件的模块顶层注册，确保页面加载时已就绪。
 :::
 
 ---
@@ -125,31 +134,30 @@ console.log(user.userName) // "penn"
 ::: code-group
 
 ```js [JS]
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw) => {
+  const dept = raw.dept ?? {}
   return {
-    id:       raw.user_id,
-    userName: raw.username,
-    mobile:   raw.phone_no,
-    deptName: raw.dept?.dept_name ?? '未知部门',
-    age:      Number(raw.age),
-    email:    raw.email ?? '',   // ← 新增这行
+    id: raw.user_id,
+    userName: raw.username ?? '',
+    mobile: raw.phone_no ?? '',
+    deptName: dept.dept_name ?? '未知部门',
+    age: Number(raw.age ?? 0),
   }
-})
+}
 ```
 
 ```ts [TS]
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw: unknown) => {
   const r = raw as Record<string, unknown>
   const dept = (r.dept ?? {}) as Record<string, unknown>
   return {
-    id:       r.user_id as number,
-    userName: r.username as string,
-    mobile:   r.phone_no as string,
+    id: r.user_id as number,
+    userName: (r.username as string) ?? '',
+    mobile: (r.phone_no as string) ?? '',
     deptName: (dept.dept_name as string) ?? '未知部门',
-    age:      Number(r.age),
-    email:    (r.email as string) ?? '',   // ← 新增这行
+    age: Number(r.age ?? 0),
   }
-})
+}
 ```
 
 :::
@@ -167,9 +175,9 @@ adapter 和请求函数放同一文件，结构简单直接：
 ```
 src/
   api/
-    user.js     ← register('user-detail', ...) + getUserDetail()
-    order.js    ← register('order-list', ...) + getOrderList()
-  main.js       ← import './api/user'; import './api/order'（确保 register 先执行）
+    user.js     ← register(adapter: getUserDetail, ...) + getUserDetail()
+    order.js    ← register(adapter: getOrderList, ...) + getOrderList()
+  main.js                 ← 最早 import './api/guard-setup' （如果需要配置的话）
 ```
 
 ### 中大型项目（推荐）
@@ -187,50 +195,8 @@ src/
       user/
         index.js
         adapter.js
-  main.js                 ← 最早 import './api/guard-setup'
+  main.js                 ← 最早 import './api/guard-setup' （如果需要配置的话）
 ```
-
-`guard-setup.js`：
-
-```js
-import AIRequestGuard from '@ai-request-guard/core'
-
-AIRequestGuard.configure({ dev: process.env.NODE_ENV !== 'production' })
-
-// 集中触发所有 adapter 的注册副作用
-import './modules/common/adapter'
-import './modules/user/adapter'
-```
-
-`modules/common/adapter.js`：
-
-```js
-import AIRequestGuard from '@ai-request-guard/core'
-
-AIRequestGuard.register('employeePage', (raw) => {
-  // ... 映射逻辑
-})
-
-// 不需要 export 任何东西
-```
-
-`modules/common/index.js`：
-
-```js
-import AIRequestGuard from '@ai-request-guard/core'
-
-export default class CommonApi {
-  static async getEmployeePage(params) {
-    return await AIRequestGuard({
-      id: 'employeePage',
-      request: () => POST({ url: 'employee/page' }, params),
-    })
-  }
-}
-```
-
-这样 `configure` 只在一处调用，新增接口只需在 `guard-setup.js` 加一行 import，维护成本最低。
-
 ---
 
 ## 常见映射场景
@@ -242,26 +208,26 @@ export default class CommonApi {
 ::: code-group
 
 ```js [JS]
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw) => {
   return {
-    userId:     raw.user_id,
-    userName:   raw.username,
-    phoneNo:    raw.phone_no,
+    userId: raw.user_id,
+    userName: raw.username,
+    phoneNo: raw.phone_no,
     createTime: raw.create_time,
   }
-})
+}
 ```
 
 ```ts [TS]
-AIRequestGuard.register('user-detail', (raw) => {
-  const r = raw as Record<string, unknown>
+export const getUserDetailAdapter = (raw) => {
+ const r = raw as Record<string, unknown>
   return {
-    userId:     r.user_id as number,
-    userName:   r.username as string,
-    phoneNo:    r.phone_no as string,
+    userId: r.user_id as number,
+    userName: r.username as string,
+    phoneNo: r.phone_no as string,
     createTime: r.create_time as string,
   }
-})
+}
 ```
 
 :::
@@ -273,26 +239,30 @@ AIRequestGuard.register('user-detail', (raw) => {
 ::: code-group
 
 ```js [JS]
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw) => {
   const dept = raw.dept ?? {}
   return {
-    userId:   raw.user_id,
-    deptId:   dept.dept_id ?? 0,
+    id: raw.user_id,
+    userName: raw.username ?? '',
+    mobile: raw.phone_no ?? '',
     deptName: dept.dept_name ?? '未知部门',
+    age: Number(raw.age ?? 0),
   }
-})
+}
 ```
 
 ```ts [TS]
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw: unknown) => {
   const r = raw as Record<string, unknown>
   const dept = (r.dept ?? {}) as Record<string, unknown>
   return {
-    userId:   r.user_id as number,
-    deptId:   (dept.dept_id as number) ?? 0,
+    id: r.user_id as number,
+    userName: (r.username as string) ?? '',
+    mobile: (r.phone_no as string) ?? '',
     deptName: (dept.dept_name as string) ?? '未知部门',
+    age: Number(r.age ?? 0),
   }
-})
+}
 ```
 
 :::
@@ -304,26 +274,26 @@ AIRequestGuard.register('user-detail', (raw) => {
 ::: code-group
 
 ```js [JS]
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw) => {
   return {
     userId: raw.user_id,
     avatar: raw.avatar ?? 'https://example.com/default-avatar.png',
-    tags:   raw.tags ?? [],
+    tags: raw.tags ?? [],
     status: raw.status ?? 0,
   }
-})
+}
 ```
 
 ```ts [TS]
-AIRequestGuard.register('user-detail', (raw) => {
+export const getUserDetailAdapter = (raw) => {
   const r = raw as Record<string, unknown>
   return {
     userId: r.user_id as number,
     avatar: (r.avatar as string) ?? 'https://example.com/default-avatar.png',
-    tags:   (r.tags as string[]) ?? [],
+    tags: (r.tags as string[]) ?? [],
     status: (r.status as number) ?? 0,
   }
-})
+}
 ```
 
 :::
@@ -335,24 +305,24 @@ AIRequestGuard.register('user-detail', (raw) => {
 ::: code-group
 
 ```js [JS]
-AIRequestGuard.register('product-detail', (raw) => {
+export const getUserDetailAdapter = (raw) => {
   return {
-    price:    Number(raw.price ?? 0),         // "99.9" → 99.9
-    stock:    parseInt(raw.stock, 10) || 0,
+    price: Number(raw.price ?? 0), // "99.9" → 99.9
+    stock: parseInt(raw.stock, 10) || 0,
     isActive: raw.is_active === 1 || raw.is_active === '1',
   }
-})
+}
 ```
 
 ```ts [TS]
-AIRequestGuard.register('product-detail', (raw) => {
+export const getUserDetailAdapter = (raw) => {
   const r = raw as Record<string, unknown>
   return {
-    price:    Number(r.price ?? 0),
-    stock:    parseInt(r.stock as string, 10) || 0,
+    price: Number(r.price ?? 0),
+    stock: parseInt(r.stock as string, 10) || 0,
     isActive: r.is_active === 1 || r.is_active === '1',
   }
-})
+}
 ```
 
 :::
@@ -370,17 +340,17 @@ const STATUS_MAP = {
   3: '已取消',
 }
 
-AIRequestGuard.register('order-list', (raw) => {
+export const getOrderListAdapter = (raw) => {
   const list = raw.list ?? []
   return {
     total: raw.total ?? 0,
     items: list.map((item) => ({
-      orderId:    item.order_id,
-      amount:     item.order_amount,
+      orderId: item.order_id,
+      amount: item.order_amount,
       statusText: STATUS_MAP[item.status_code] ?? '未知状态',
     })),
   }
-})
+}
 ```
 
 ```ts [TS]
@@ -390,18 +360,18 @@ const STATUS_MAP: Record<number, string> = {
   3: '已取消',
 }
 
-AIRequestGuard.register('order-list', (raw) => {
+export const getOrderListAdapter = (raw) => {
   const r = raw as Record<string, unknown>
   const list = (r.list as Array<Record<string, unknown>>) ?? []
   return {
     total: (r.total as number) ?? 0,
     items: list.map((item) => ({
-      orderId:    item.order_id as string,
-      amount:     item.order_amount as number,
+      orderId: item.order_id as string,
+      amount: item.order_amount as number,
       statusText: STATUS_MAP[item.status_code as number] ?? '未知状态',
     })),
   }
-})
+}
 ```
 
 :::
@@ -413,23 +383,23 @@ AIRequestGuard.register('order-list', (raw) => {
 ::: code-group
 
 ```js [JS]
-AIRequestGuard.register('cart-detail', (raw) => {
+export const getCartDetailAdapter = (raw) => {
   const items = raw.items ?? []
   const totalAmount = items.reduce((sum, item) => sum + item.price * item.qty, 0)
   return {
     items: items.map((item) => ({
-      name:  item.name,
+      name: item.name,
       price: item.price,
-      qty:   item.qty,
+      qty: item.qty,
     })),
     totalAmount,
     itemCount: items.length,
   }
-})
+}
 ```
 
 ```ts [TS]
-AIRequestGuard.register('cart-detail', (raw) => {
+export const getCartDetailAdapter = (raw) => {
   const r = raw as Record<string, unknown>
   const items = (r.items as Array<Record<string, unknown>>) ?? []
   const totalAmount = items.reduce(
@@ -438,14 +408,14 @@ AIRequestGuard.register('cart-detail', (raw) => {
   )
   return {
     items: items.map((item) => ({
-      name:  item.name as string,
+      name: item.name as string,
       price: item.price as number,
-      qty:   item.qty as number,
+      qty: item.qty as number,
     })),
     totalAmount,
     itemCount: items.length,
   }
-})
+}
 ```
 
 :::
@@ -455,6 +425,7 @@ AIRequestGuard.register('cart-detail', (raw) => {
 ## Adapter 设计原则
 
 **✅ 应该放入 Adapter 的：**
+
 - 字段重命名（snake_case → camelCase）
 - 结构变换（嵌套 → 平铺，列表映射）
 - 类型转换（string → number，枚举 code → 文本）
@@ -462,6 +433,7 @@ AIRequestGuard.register('cart-detail', (raw) => {
 - 简单的衍生计算（总计、状态文本）
 
 **❌ 不应该放入 Adapter 的：**
+
 - 副作用（修改全局状态、调用其他 API）
 - 异步操作（adapter 是同步纯函数）
 - 复杂业务逻辑（这些属于视图层或 store）
