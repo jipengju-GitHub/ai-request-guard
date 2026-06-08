@@ -1,6 +1,6 @@
 {
   "name": "@ai-request-guard/core",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "author": "Penn Ji",
   "description": "Frontend anti-corruption layer — isolate backend DTOs from view models with the adapter pattern",
   "keywords": [

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.6
+
+> GUI server 端口计算修复。
+
+### 修复
+
+**`@ai-request-guard/vite-plugin`**
+
+- `devServerPort` 强制 `Number()` 转换，修复 Vite 以字符串传入端口时 `"8080" + 100 = "8080100"` 导致 GUI server 启动失败的问题
+
+---
+
 ## 1.0.5
 
 > GUI server 启动修复，消除 `listening` 事件竞态。

@@ -314,7 +314,7 @@ export { flushReport }
     configureServer(server: ViteDevServer) {
       // 启动独立端口的 GUI server（同进程，devServer 关闭时自动退出）
       if (aiOpts) {
-        const devServerPort = server.config.server.port ?? 5173
+        const devServerPort = Number(server.config.server.port) || 5173
         const host = 'localhost'
 
         startGuiServer({
