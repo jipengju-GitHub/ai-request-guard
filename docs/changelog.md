@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.5
+
+> GUI server 启动修复，消除 `listening` 事件竞态。
+
+### 修复
+
+**`@ai-request-guard/vite-plugin`**
+
+- GUI server 不再依赖 `server.httpServer?.once('listening', ...)` 启动，改为在 `configureServer` 中直接启动，修复 middleware mode / Vite 8 下 GUI server 静默不启动的问题
+
+---
+
 ## 1.0.4
 
 > dev-server 安全加固：readBody 增加大小限制与错误处理。
