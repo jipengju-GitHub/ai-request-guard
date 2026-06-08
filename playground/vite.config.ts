@@ -39,6 +39,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     vue(),
     aiRequestGuardPlugin({
+      reporting: true,
       ai: {
         provider: 'openai-compatible',
         baseURL: 'https://api.deepseek.com',

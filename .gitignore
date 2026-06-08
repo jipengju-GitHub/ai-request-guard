@@ -6,6 +6,7 @@ v1-ai-plan.md
 v1.0.1-plan.md
 *.local
 .claude/
+.codegraph/
 CLAUDE.md
 
 # built output

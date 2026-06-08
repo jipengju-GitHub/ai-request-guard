@@ -313,34 +313,28 @@ export { flushReport }
 
     configureServer(server: ViteDevServer) {
       // 启动独立端口的 GUI server（同进程，devServer 关闭时自动退出）
-      server.httpServer?.once('listening', async () => {
-        if (!aiOpts) return
-
-        const address = server.httpServer?.address()
-        const devServerPort = typeof address === 'object' && address ? address.port : server.config.server.port ?? 5173
+      if (aiOpts) {
+        const devServerPort = server.config.server.port ?? 5173
         const host = 'localhost'
 
-        try {
-          const { server: guiServer, port: guiPort } = await startGuiServer({
-            devServerPort,
-            guiPort: options.guiPort,
-            aiConfigured: !!aiOpts,
-            fileType,
-            rootDir,
-            buildProvider,
-            onLog: (msg) => server.config.logger.info(msg, { timestamp: true }),
-          })
-
+        startGuiServer({
+          devServerPort,
+          guiPort: options.guiPort,
+          aiConfigured: true,
+          fileType,
+          rootDir,
+          buildProvider,
+          onLog: (msg) => server.config.logger.info(msg, { timestamp: true }),
+        }).then(({ server: guiServer, port: guiPort }) => {
           server.config.logger.info(
             `  \x1b[32m➜\x1b[0m  AIRequestGuard GUI:  \x1b[36mhttp://${host}:${guiPort}\x1b[0m`,
             { timestamp: false }
           )
-
           server.httpServer?.once('close', () => guiServer.close())
-        } catch (err) {
+        }).catch((err) => {
           server.config.logger.warn(`[ai-request-guard] GUI server failed to start: ${err}`, { timestamp: true })
-        }
-      })
+        })
+      }
 
       if (!reporting) return
 
