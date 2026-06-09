@@ -7,9 +7,10 @@
  * ```js
  * import AIRequestGuard from '@ai-request-guard/core'
  *
- * AIRequestGuard.register('user-detail', (raw) => ({ id: raw.user_id }))
+ * const getUserAdapter = (raw) => ({ id: raw.user_id })
+ * AIRequestGuard.register({ adapter: getUserAdapter })
  *
- * const user = await AIRequestGuard({ id: 'user-detail', request: () => fetch('/user/1') })
+ * const user = await AIRequestGuard({ adapter: getUserAdapter, request: () => fetch('/user/1') })
  * ```
  */
 export { default } from './guard'

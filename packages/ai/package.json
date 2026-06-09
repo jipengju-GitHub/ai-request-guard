@@ -1,6 +1,6 @@
 {
   "name": "@ai-request-guard/ai",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "private": true,
   "description": "Internal AI generation utilities for ai-request-guard plugins (Node-only, not published)",
   "type": "module",

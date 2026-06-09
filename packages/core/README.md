@@ -13,8 +13,8 @@ pnpm add @ai-request-guard/core
 ```typescript
 import AIRequestGuard from '@ai-request-guard/core'
 
-// 注册 adapter
-AIRequestGuard.register('user-detail', (raw) => {
+// 定义 adapter 函数
+function getUserDetailAdapter(raw: unknown) {
   const r = raw as Record<string, unknown>
   const dept = (r.dept ?? {}) as Record<string, unknown>
   return {
@@ -26,13 +26,18 @@ AIRequestGuard.register('user-detail', (raw) => {
     avatar: (r.avatar as string) ?? 'https://example.com/default.png',
     createTime: (r.create_time as string) ?? '',
   }
+}
+
+// 注册 adapter
+AIRequestGuard.register({
+  viewSchema: { id: 0, userName: '', mobile: '', deptName: '', age: 0, avatar: '', createTime: '' },
+  adapter: getUserDetailAdapter,
 })
 
 // 发起请求
 const user = await AIRequestGuard({
-  id: 'user-detail',
+  adapter: getUserDetailAdapter,
   request: () => fetch('/api/user/detail').then(r => r.json()),
-  schema: { id: 0, userName: '', mobile: '', deptName: '', age: 0, avatar: '', createTime: '' },
 })
 ```
 
@@ -44,18 +49,15 @@ AIRequestGuard.setMode('mock')
 
 // 单接口 mock（静态数据）
 const user = await AIRequestGuard({
-  id: 'user-detail',
+  adapter: getUserDetailAdapter,
   request: () => fetch('/api/user/detail').then(r => r.json()),
   mode: 'mock',
-  mockData: { user_id: 1, username: 'test', phone_no: '138xxxxxxxx', age: '28' },
 })
 
-// 工厂函数 mock
-const user = await AIRequestGuard({
-  id: 'user-detail',
-  request: () => fetch('/api/user/detail').then(r => r.json()),
-  mode: 'mock',
-  mockData: (id) => ({ user_id: 0, username: `mock-${id}`, phone_no: '', age: '0' }),
+// 通过 viewSchema 提供 mock 数据（工厂函数）
+AIRequestGuard.register({
+  viewSchema: () => ({ user_id: 1, username: 'test', phone_no: '138xxxxxxxx', age: '28' }),
+  adapter: getUserDetailAdapter,
 })
 ```
 
@@ -63,8 +65,8 @@ const user = await AIRequestGuard({
 
 ```typescript
 // 注册 URL 监听规则，GET 请求命中时自动上报 raw 数据
-AIRequestGuard.watch('/api/user/detail', 'user-detail')
-AIRequestGuard.watch(/\/api\/order\/\d+/, 'order-detail')
+AIRequestGuard.watch('/api/user/detail', getUserDetailAdapter)
+AIRequestGuard.watch(/\/api\/order\/\d+/, getOrderDetailAdapter)
 ```
 
 ## API 速览
@@ -72,10 +74,10 @@ AIRequestGuard.watch(/\/api\/order\/\d+/, 'order-detail')
 | 方法 | 说明 |
 |---|---|
 | `AIRequestGuard(options)` | 发起请求并经 adapter 转换，返回 ViewModel |
-| `AIRequestGuard.register(id, fn)` | 注册 adapter |
+| `AIRequestGuard.register(options)` | 注册 adapter（`{ adapter, viewSchema? }`）|
 | `AIRequestGuard.configure(config)` | 更新全局配置（mode / dev）|
 | `AIRequestGuard.setMode(mode)` | 切换全局请求模式 |
-| `AIRequestGuard.watch(pattern, id)` | 注册 URL 拦截规则（dev only）|
+| `AIRequestGuard.watch(pattern, adapter)` | 注册 URL 拦截规则（dev only）|
 | `AIRequestGuard.clearWatch()` | 清空拦截规则（dev only）|
 | `validateSchema(id, data, schema)` | 手动执行 schema diff 校验 |
 | `hasDiff(diff)` | 判断 diff 结果是否有需关注的差异 |

@@ -60,13 +60,15 @@ export default defineConfig({
 import AIRequestGuard from '@ai-request-guard/core'
 import 'virtual:ai-request-guard/report-sink'
 
-AIRequestGuard.register('user-detail', (raw) => {
+// 定义并注册 adapter
+function getUserDetailAdapter(raw: unknown) {
   const r = raw as Record<string, unknown>
   return { id: r.user_id as number, userName: r.username as string }
-})
+}
+AIRequestGuard.register({ adapter: getUserDetailAdapter })
 
 // 注册 URL 监听规则
-AIRequestGuard.watch('/api/user/detail', 'user-detail')
+AIRequestGuard.watch('/api/user/detail', getUserDetailAdapter)
 ```
 
 触发一次 `GET /api/user/detail` 请求后，项目根目录会生成 `ai-request-guard-report.html`。
